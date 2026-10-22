@@ -218,3 +218,10 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Local speech/translation models and setup downloads
+models/
+.downloads/
+.uv-cache/
+.model-venv/
+reports/

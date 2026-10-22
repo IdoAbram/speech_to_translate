@@ -1,0 +1,44 @@
+[
+  {
+    "source": "en",
+    "target": "he",
+    "input": "When I reached the station,\nI realized I had left my ticket at home.\nMy sister brought it to me before the train arrived.",
+    "output": "כשהגעתי לתחנת הרכבת, הבנתי שהשארתי את הכרטיס בבית.אחותי\nהביאה אותו אליי לפני שהרכבת הגיעה.",
+    "seconds": 3.86
+  },
+  {
+    "source": "en",
+    "target": "pl",
+    "input": "When I reached the station,\nI realized I had left my ticket at home.\nMy sister brought it to me before the train arrived.",
+    "output": "Gdy dotarłem do dworca, zdałem sobie sprawę, że zostawiłem\nbilet w domu. moja siostra zabrała go do mnie przed\nprzybyciem pociągu.",
+    "seconds": 2.99
+  },
+  {
+    "source": "he",
+    "target": "en",
+    "input": "כשחזרתי הביתה,\nמצאתי מכתב על השולחן.\nהוא הזכיר לי את הקיץ שבילינו יחד.",
+    "output": "When I returned home, I found a letter on the table. he\nreminded me of the summer we spent together.",
+    "seconds": 2.24
+  },
+  {
+    "source": "he",
+    "target": "pl",
+    "input": "כשחזרתי הביתה,\nמצאתי מכתב על השולחן.\nהוא הזכיר לי את הקיץ שבילינו יחד.",
+    "output": "Kiedy wróciłem do domu, znalazłem list na stole, który\nprzypomniał mi letnie spędzone razem.",
+    "seconds": 2.02
+  },
+  {
+    "source": "pl",
+    "target": "en",
+    "input": "Kiedy wróciłam do domu,\nznalazłam list na stole.\nPrzypomniał mi lato, które spędziliśmy razem.",
+    "output": "When I returned home, I found a letter on the table. It\nreminded me of the summer we spent together.",
+    "seconds": 2.4
+  },
+  {
+    "source": "pl",
+    "target": "he",
+    "input": "Kiedy wróciłam do domu,\nznalazłam list na stole.\nPrzypomniał mi lato, które spędziliśmy razem.",
+    "output": "כשחזרתי הביתה, מצאתי מכתב על השולחן, הוא מזכיר לי את הקיץ\nשעברנו יחד.",
+    "seconds": 3.17
+  }
+]
