@@ -1,0 +1,25 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+qt_api = "pyside6"
+addopts = "-ra --strict-markers"
+markers = ["integration: requires installed local models"]
+
+[tool.coverage.run]
+source = ["speech_translate"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+exclude_also = ["if TYPE_CHECKING:", "if __name__ == .__main__.:"]
+
+[tool.ruff]
+line-length = 80
+target-version = "py313"
+extend-exclude = ["models", ".downloads", ".model-venv", "build", "dist"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "D"]
+ignore = ["D105", "D107"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
