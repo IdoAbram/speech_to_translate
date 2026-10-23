@@ -58,18 +58,15 @@ def test_long_multilingual_document_loses_no_words(local_translation):
     assert measured == sorted(measured) and measured[-1] == 100
 
 
-def test_connected_lines_share_context_and_choruses_are_cached(
-    local_translation,
-):
-    """Preserve a phrase across a visual line break and retain every repeat."""
+def test_lines_stay_aligned_and_choruses_are_cached(local_translation):
+    """Translate each visual line once and retain every repeated chorus."""
     root, decoder = local_translation
     verse = "She put the book\non the table. It was a gift."
     output = service.translate(
         f"{verse}\n\n{verse}", "en", "he", models_dir=root
     )
-    assert decoder.call_count == 1
-    assert "on the table" in "".join(decoder.call_args.args[2])
-    assert output.split("\n\n")[0] == output.split("\n\n")[1]
+    assert decoder.call_count == 2
+    assert output.split("\n") == [*verse.split("\n"), "", *verse.split("\n")]
 
 
 def limited_decoder(model, tokenizer, tokens, prefix):
