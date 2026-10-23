@@ -189,25 +189,17 @@ QLabel#stepLater {{
     color: #8C8A82;
     font-size: 21px;
     }}
-QTableWidget {{
+QTextEdit {{
     background: #FFFFFF;
-    border: 0;
-    gridline-color: transparent;
-    selection-background-color: transparent;
+    border: 1px solid #F0EEE6;
+    border-radius: 12px;
+    padding: 8px 6px;
+    color: {INK};
+    selection-background-color: {ACCENT_SOFT};
     selection-color: {INK};
     }}
-QTableWidget::item {{
-    border-bottom: 1px solid #F0EEE6;
-    padding: 6px 10px;
-    }}
-QHeaderView::section {{
-    background: #FCFBF8;
-    border: 0;
-    border-bottom: 1px solid {LINE};
-    padding: 10px;
-    font-size: 16px;
-    font-weight: 700;
-    color: #3D3D3A;
+QTextEdit:focus {{
+    border-color: #D9B8A6;
     }}
 QLineEdit {{
     background: #FFFFFF;

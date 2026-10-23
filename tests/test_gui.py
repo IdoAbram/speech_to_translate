@@ -5,13 +5,14 @@ from unittest import mock
 
 import pytest
 from PySide6 import QtCore, QtGui, QtWidgets
+from PySide6.QtTest import QTest
 
 from speech_translate import config, settings, speech, translation
 from speech_translate.gui import (
     drop_area,
     key_dialog,
     language_bar,
-    lyrics_table,
+    lyrics_box,
     settings_dialog,
     worker,
 )
@@ -54,7 +55,7 @@ def test_choose_hear_and_translate(translated, heard, translator):
     assert view.page() == "result"
     assert heard.call_args.args[1] == "pl"
     assert translator.call_args.args[1:3] == ("pl", "he")
-    assert view.result.table.translated_lines() == WORDS.upper().split("\n")
+    assert view.result.translated_lines() == WORDS.upper().split("\n")
     assert view.status.property("kind") == "success"
 
 
@@ -70,16 +71,27 @@ def test_screens_follow_the_flow(desktop, song, heard, translator, qapp):
     assert desktop.view.page() == "result"
 
 
+def click_line(editor, row: int) -> None:
+    """Click the middle of one line, as the user would."""
+    block = editor.document().findBlockByNumber(row)
+    point = editor.cursorRect(QtGui.QTextCursor(block)).center()
+    QTest.mouseClick(
+        editor.viewport(), QtCore.Qt.MouseButton.LeftButton, pos=point
+    )
+
+
 def test_click_copies_a_line(translated):
-    """Clicking a row copies its translation and names the line."""
-    table = translated.view.result.table
-    table.cellClicked.emit(2, lyrics_table.TRANSLATION)
+    """Clicking a translated line copies it and names the line."""
+    result = translated.view.result
+    click_line(result.translation.editor, 2)
     clipboard = QtWidgets.QApplication.clipboard()
     assert clipboard.text() == "W KRAINĘ ZAPOMNIENIA"
     assert "2" in translated.view.status.text()
-    assert table.item(2, lyrics_table.HINT).text() == "Copied ✓"
-    translated.copy_all()
+    assert result.translation.editor.copied == 2
+    result.copy_all.emit()
     assert clipboard.text() == WORDS.upper()
+    result.copy_source.emit()
+    assert clipboard.text() == WORDS
 
 
 def test_switching_back_reuses_translation(translated, translator, qapp):
@@ -135,7 +147,7 @@ def test_failures_return_to_a_useful_screen(desktop, song, heard, qapp):
         helpers.wait_runner(desktop.runner, qapp)
     assert desktop.view.page() == "result"
     assert desktop.view.status.property("kind") == "error"
-    assert desktop.view.result.table.source_lines() == WORDS.split("\n")
+    assert desktop.view.result.source_lines() == WORDS.split("\n")
     heard.side_effect = config.AppError("Bad audio")
     desktop.accept_file(str(song))
     desktop.start()
@@ -151,9 +163,9 @@ def missing(*args, **kwargs):
 
 def test_fixing_a_word_clears_the_translation(translated):
     """A corrected line never sits beside an old translation."""
-    table = translated.view.result.table
-    table.item(0, lyrics_table.SOURCE).setText("Tylko jedno w głowie")
-    assert not any(table.translated_lines())
+    result = translated.view.result
+    result.source.editor.textCursor().insertText("!")
+    assert result.translated_lines() == []
     assert "Translate" in translated.view.status.text()
 
 
@@ -371,17 +383,34 @@ def test_language_bar_keeps_languages_apart(qapp):
     assert bar.target() == "he"
 
 
-def test_lyrics_table_numbers_hover_and_copy(qapp):
-    """Number only real lines; hovering and copying mark one row."""
-    table = lyrics_table.LyricsTable()
-    table.set_lines(["a", "", "b"], ["A", "", "B"])
-    assert table.is_blank(1) and table.line_number(2) == 2
-    table.cellEntered.emit(0, lyrics_table.SOURCE)
-    assert table.item(0, lyrics_table.HINT).text() == "Click to copy"
-    table.leaveEvent(QtCore.QEvent(QtCore.QEvent.Type.Leave))
-    assert table.item(0, lyrics_table.HINT).text() == ""
+def test_lyrics_box_numbers_hover_and_click(qtbot):
+    """Number only real lines; hover tints a line; blank lines do nothing."""
+    editor = lyrics_box.LyricsEditor(copyable=True)
+    qtbot.addWidget(editor)
+    editor.resize(500, 300)
+    editor.show()
+    editor.set_lines(["a", "", "b"])
+    assert editor.line_number(2) == 2
+    assert [n for n, _, _ in editor._numbered_lines()] == ["1", "2"]
+    block = editor.document().findBlockByNumber(2)
+    point = editor.cursorRect(QtGui.QTextCursor(block)).center()
+    QTest.mouseMove(editor.viewport(), point)
+    assert editor.hovered == 2 and len(editor.extraSelections()) == 1
+    editor.leaveEvent(QtCore.QEvent(QtCore.QEvent.Type.Leave))
+    assert editor.hovered == -1
     clicked = []
-    table.line_clicked.connect(clicked.append)
-    table.cellClicked.emit(1, lyrics_table.SOURCE)
-    table.cellClicked.emit(2, lyrics_table.SOURCE)
+    editor.line_clicked.connect(clicked.append)
+    click_line(editor, 1)
+    click_line(editor, 2)
     assert clicked == [2]
+
+
+def test_hebrew_box_reads_right_to_left(qtbot):
+    """The translation box lays Hebrew out from the right edge."""
+    editor = lyrics_box.LyricsEditor(copyable=False)
+    qtbot.addWidget(editor)
+    editor.set_language("he")
+    editor.set_lines(["שלום"])
+    rtl = QtCore.Qt.LayoutDirection.RightToLeft
+    assert editor.layoutDirection() == rtl
+    assert editor.document().firstBlock().blockFormat().layoutDirection() == rtl

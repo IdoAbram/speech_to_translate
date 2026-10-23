@@ -83,8 +83,8 @@ def test_real_desktop_pipeline(desktop, real_mp3, qapp):
     desktop.view.chosen.languages.set_languages("en", "he")
     desktop.view.chosen.translate.click()
     helpers.wait_runner(desktop.runner, qapp, timeout=240)
-    table = desktop.view.result.table
-    words = "\n".join(table.source_lines())
+    result = desktop.view.result
+    words = "\n".join(result.source_lines())
     assert "meeting" in words.lower(), desktop.view.status.text()
-    assert any(table.translated_lines()), desktop.view.status.text()
+    assert result.translated_lines(), desktop.view.status.text()
     assert desktop.view.page() == "result"

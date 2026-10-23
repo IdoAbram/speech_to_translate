@@ -36,19 +36,16 @@ MESSAGES = {
     "{elapsed} so far": "עברו {elapsed}",
     "Cancel": "ביטול",
     # Lyrics screen.
-    "Line": "שורה",
     "Song words · {language}": "מילות השיר · {language}",
     "Translation · {language}": "תרגום · {language}",
-    "Click a line to copy it. Double-click a word to fix it.": (
-        "לחיצה על שורה מעתיקה אותה. לחיצה כפולה על מילה מאפשרת לתקן אותה."
-    ),
-    "Click to copy": "לחצו להעתקה",
-    "Copied ✓": "הועתק ✓",
+    "You can fix a misheard word here.": ("אפשר לתקן כאן מילה ששמענו לא נכון."),
+    "Click a line to copy it.": "לחיצה על שורה מעתיקה אותה.",
+    "Copy": "העתקה",
+    "The whole translation was copied.": "כל התרגום הועתק.",
+    "The song words were copied.": "מילות השיר הועתקו.",
     "Line {number} copied. You can paste it in the video editor.": (
         "שורה {number} הועתקה. אפשר להדביק אותה בעורך הווידאו."
     ),
-    "Copy all": "העתקת הכול",
-    "All lines copied.": "כל השורות הועתקו.",
     "Translation ready. Click a line to copy its translation.": (
         "התרגום מוכן. לחצו על שורה כדי להעתיק את התרגום שלה."
     ),

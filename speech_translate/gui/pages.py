@@ -2,8 +2,8 @@
 
 from PySide6 import QtCore, QtWidgets
 
-from speech_translate import i18n
-from speech_translate.gui import language_bar, lyrics_table, widgets
+from speech_translate import config, i18n
+from speech_translate.gui import language_bar, lyrics_box, widgets
 
 
 def centered_row(*items) -> QtWidgets.QHBoxLayout:
@@ -65,12 +65,15 @@ class ChosenPage(QtWidgets.QWidget):
 
 
 class ResultPage(QtWidgets.QWidget):
-    """Screen 4: compact controls on top, the numbered lyrics below."""
+    """Screen 4: compact controls on top, two lyrics boxes below."""
 
     new_song = QtCore.Signal()
     translate_requested = QtCore.Signal()
     copy_all = QtCore.Signal()
+    copy_source = QtCore.Signal()
     save = QtCore.Signal()
+    edited = QtCore.Signal()
+    line_clicked = QtCore.Signal(int)
 
     def __init__(self):
         """Give the lyrics most of the window."""
@@ -79,7 +82,8 @@ class ResultPage(QtWidgets.QWidget):
         column.setContentsMargins(0, 0, 0, 0)
         column.setSpacing(14)
         column.addWidget(self._top_card())
-        column.addWidget(self._lyrics_card(), 1)
+        column.addLayout(self._lyrics_boxes(), 1)
+        self._connect_boxes()
 
     def _top_card(self) -> QtWidgets.QFrame:
         """The song with 'New song', then the languages and Translate."""
@@ -109,32 +113,77 @@ class ResultPage(QtWidgets.QWidget):
         row.addWidget(new_song)
         return row
 
-    def _lyrics_card(self) -> QtWidgets.QFrame:
-        """A short hint and two actions above the lyrics table."""
-        frame = widgets.card()
-        column = QtWidgets.QVBoxLayout(frame)
-        column.setContentsMargins(0, 8, 0, 0)
-        column.addLayout(self._tools())
-        self.table = lyrics_table.LyricsTable()
-        column.addWidget(self.table, 1)
-        return frame
-
-    def _tools(self) -> QtWidgets.QHBoxLayout:
-        """How to use the lyrics, then Copy all and Save."""
-        tools = QtWidgets.QHBoxLayout()
-        tools.setContentsMargins(16, 0, 16, 0)
-        hint = i18n.tr(
-            "Click a line to copy it. Double-click a word to fix it."
+    def _lyrics_boxes(self) -> QtWidgets.QHBoxLayout:
+        """The song's words and the translation, in two boxes side by side."""
+        row = QtWidgets.QHBoxLayout()
+        row.setSpacing(16)
+        self.source = lyrics_box.LyricsBox(
+            i18n.tr("You can fix a misheard word here."),
+            False,
+            [self._action(i18n.tr("Copy"), self.copy_source)],
         )
-        tools.addWidget(widgets.label(hint, "muted"), 1)
-        for text, signal in (
-            (i18n.tr("Copy all"), self.copy_all),
-            (i18n.tr("Save…"), self.save),
-        ):
-            action = widgets.button(text)
-            action.clicked.connect(signal)
-            tools.addWidget(action)
-        return tools
+        self.translation = lyrics_box.LyricsBox(
+            i18n.tr("Click a line to copy it."),
+            True,
+            [
+                self._action(i18n.tr("Copy"), self.copy_all),
+                self._action(i18n.tr("Save…"), self.save),
+            ],
+        )
+        row.addWidget(self.source)
+        row.addWidget(self.translation)
+        return row
+
+    @staticmethod
+    def _action(text: str, signal) -> QtWidgets.QPushButton:
+        """A small button that emits one of the page's signals."""
+        action = widgets.button(text)
+        action.clicked.connect(signal)
+        return action
+
+    def _connect_boxes(self) -> None:
+        """Report edits and clicks, and scroll both boxes together."""
+        source, target = self.source.editor, self.translation.editor
+        source.textChanged.connect(self.edited)
+        target.line_clicked.connect(self.line_clicked)
+        for one, other in ((source, target), (target, source)):
+            one.verticalScrollBar().valueChanged.connect(
+                other.verticalScrollBar().setValue
+            )
+
+    def set_headers(self, source: str, target: str) -> None:
+        """Name both languages and lay each box out in its direction."""
+        self.source.title.setText(
+            i18n.tr(
+                "Song words · {language}", language=config.language_name(source)
+            )
+        )
+        self.translation.title.setText(
+            i18n.tr(
+                "Translation · {language}",
+                language=config.language_name(target),
+            )
+        )
+        self.source.editor.set_language(source)
+        self.translation.editor.set_language(target)
+
+    def set_lines(self, source_lines: list, translated=None) -> None:
+        """Show the words and, when known, their line-by-line translation."""
+        self.source.editor.set_lines(source_lines)
+        self.translation.editor.set_lines(translated or [])
+
+    def source_lines(self) -> list:
+        """Return the song's lines, including any fixes."""
+        return self.source.editor.lines()
+
+    def translated_lines(self) -> list:
+        """Return the translation's lines, or nothing before translating."""
+        lines = self.translation.editor.lines()
+        return lines if any(lines) else []
+
+    def clear_translation(self) -> None:
+        """Remove a translation that no longer matches the words."""
+        self.translation.editor.set_lines([])
 
     def set_song(self, name: str) -> None:
         """Name the song whose words are shown."""

@@ -4,7 +4,7 @@ import pathlib
 
 from PySide6 import QtGui, QtWidgets
 
-from speech_translate import config, i18n, settings, speech
+from speech_translate import i18n, settings, speech
 from speech_translate.gui import (
     drop_area,
     jobs,
@@ -66,8 +66,9 @@ class Window(QtWidgets.QMainWindow):
         result.translate_requested.connect(self.translate_again)
         result.copy_all.connect(self.copy_all)
         result.save.connect(self.save_translation)
-        result.table.line_clicked.connect(self.copy_line)
-        result.table.edited.connect(self.words_edited)
+        result.copy_source.connect(self.copy_source)
+        result.line_clicked.connect(self.copy_line)
+        result.edited.connect(self.words_edited)
 
     def _connect_jobs(self) -> None:
         """Keep updates and results on the GUI thread."""
@@ -134,15 +135,13 @@ class Window(QtWidgets.QMainWindow):
         if languages.source() != self.heard_language:
             self._listen()
         else:
-            self._translate("\n".join(self.view.result.table.source_lines()))
+            self._translate("\n".join(self.view.result.source_lines()))
 
     def _sync_languages(self, source: str, target: str) -> None:
         """Show the same languages on both screens."""
         self.view.chosen.languages.set_languages(source, target)
         self.view.result.languages.set_languages(source, target)
-        self.view.result.table.set_headers(
-            config.language_name(source), config.language_name(target)
-        )
+        self.view.result.set_headers(source, target)
 
     def _listen(self) -> None:
         """Start speech recognition, with translation queued after it."""
@@ -194,14 +193,14 @@ class Window(QtWidgets.QMainWindow):
     def _words_heard(self, transcript: speech.Transcript) -> None:
         """Show the words and queue their translation."""
         self.heard_language = transcript.language
-        self.view.result.table.set_lines(transcript.text.split("\n"))
+        self.view.result.set_lines(transcript.text.split("\n"))
         if self.next_translation:
             self.next_translation = transcript.text
 
     def _show_translation(self, text: str, notice: str) -> None:
         """Show the translation; never remember a lower-quality fallback."""
-        table = self.view.result.table
-        table.set_lines(table.source_lines(), text.split("\n"))
+        result = self.view.result
+        result.set_lines(result.source_lines(), text.split("\n"))
         if not notice and self.pending_translation is not None:
             self.translations.put(*self.pending_translation, text)
         self.pending_translation = None
@@ -218,7 +217,7 @@ class Window(QtWidgets.QMainWindow):
     def job_failed(self, message: str) -> None:
         """Explain a failure and return to the last useful screen."""
         self.next_translation = None
-        heard = self.view.result.table.rowCount() and self.heard_language
+        heard = any(self.view.result.source_lines()) and self.heard_language
         self.view.show_page("result" if heard else "chosen")
         kind = "info" if self.cancel_requested else "error"
         self.view.show_status(message, kind)
@@ -235,12 +234,11 @@ class Window(QtWidgets.QMainWindow):
             self._translate(text)
 
     def copy_line(self, row: int) -> None:
-        """Copy one line's translation, or the song line before translating."""
-        table = self.view.result.table
-        text = table.translated_lines()[row] or table.source_lines()[row]
-        QtWidgets.QApplication.clipboard().setText(text)
-        table.mark_copied(row)
-        number = table.line_number(row)
+        """Copy one translated line and say which one was copied."""
+        editor = self.view.result.translation.editor
+        QtWidgets.QApplication.clipboard().setText(editor.lines()[row])
+        editor.mark_copied(row)
+        number = editor.line_number(row)
         self.view.show_status(
             i18n.tr(
                 "Line {number} copied. You can paste it in the video editor.",
@@ -252,13 +250,20 @@ class Window(QtWidgets.QMainWindow):
     def copy_all(self) -> None:
         """Copy the whole translation, keeping its lines and verse breaks."""
         QtWidgets.QApplication.clipboard().setText(self._export_text())
-        self.view.show_status(i18n.tr("All lines copied."), "success")
+        message = i18n.tr("The whole translation was copied.")
+        self.view.show_status(message, "success")
+
+    def copy_source(self) -> None:
+        """Copy the song's words, including any fixes."""
+        text = "\n".join(self.view.result.source_lines())
+        QtWidgets.QApplication.clipboard().setText(text)
+        message = i18n.tr("The song words were copied.")
+        self.view.show_status(message, "success")
 
     def _export_text(self) -> str:
         """Return the translation if there is one, else the song's words."""
-        table = self.view.result.table
-        translated = table.translated_lines()
-        lines = translated if any(translated) else table.source_lines()
+        result = self.view.result
+        lines = result.translated_lines() or result.source_lines()
         return "\n".join(lines)
 
     def save_translation(self) -> None:
@@ -286,7 +291,7 @@ class Window(QtWidgets.QMainWindow):
 
     def words_edited(self) -> None:
         """Clear a translation that no longer matches the corrected words."""
-        self.view.result.table.clear_translation()
+        self.view.result.clear_translation()
         self.view.show_status(
             i18n.tr("The words changed. Click Translate to translate again.")
         )

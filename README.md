@@ -37,12 +37,15 @@ screens; `docs/SongWords-design-flow.pdf` shows them.
 3. **Working:** one thick progress bar with a percentage, the elapsed time,
    and three plain steps (reading the song, hearing the words, translating)
    that are ticked off. **Cancel** stops after the current step.
-4. **Translated:** each row holds a line number, the song's line, and its
-   translation, so line 12 is always beside line 12. Hovering a row
-   highlights it; **clicking copies that line** for the video editor.
-   Double-click a song line to fix a misheard word; the translation is then
-   cleared until you click **Translate** again. **Copy all** and **Save…**
-   export the whole translation. **+ New song** returns to screen 1.
+4. **Translated:** two text boxes side by side: the song's words and the
+   translation. Both use the same text size and keep the song's blank verse
+   lines, so line 12 of one sits beside line 12 of the other; a faint number
+   marks each line, and scrolling one box scrolls the other. Fix a misheard
+   word by typing in the song box (the translation is then cleared until you
+   click **Translate** again). In the translation box, hovering highlights a
+   line and **clicking copies that line** for the video editor. Each box has
+   **Copy**; the translation also has **Save…**. **+ New song** returns to
+   screen 1.
 
 **Settings** holds what grandpa never needs: the switch for better
 translation over the internet (Groq) with its key, and full screen or
