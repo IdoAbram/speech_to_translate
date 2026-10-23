@@ -36,6 +36,14 @@ QLabel#songName {{
     font-size: 24px;
     font-weight: 700;
     }}
+QLabel#songCaption {{
+    color: {MUTED};
+    font-size: 20px;
+    }}
+QFrame#divider {{
+    background: #F0EEE6;
+    border: 0;
+    }}
 QLabel#bigTitle {{
     font-size: 38px;
     font-weight: 700;

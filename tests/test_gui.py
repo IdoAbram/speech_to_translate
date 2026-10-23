@@ -64,7 +64,7 @@ def test_screens_follow_the_flow(desktop, song, heard, translator, qapp):
     assert desktop.view.page() == "start"
     desktop.accept_file(str(song))
     assert desktop.view.page() == "chosen"
-    assert desktop.view.chosen.song.text() == song.name
+    assert desktop.view.chosen.song.full_name == song.name
     desktop.start()
     assert desktop.view.page() == "working" and desktop.runner.busy
     helpers.wait_runner(desktop.runner, qapp)

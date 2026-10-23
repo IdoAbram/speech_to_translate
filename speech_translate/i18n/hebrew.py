@@ -15,7 +15,7 @@ MESSAGES = {
     ),
     "or drag the file here": "או גררו את הקובץ לכאן",
     "MP3 songs (*.mp3)": "שירים בפורמט MP3 (*.mp3)",
-    "The chosen song": "השיר שנבחר",
+    "The chosen song:": "השיר שנבחר:",
     "Another song": "שיר אחר",
     "The song is in": "השיר בשפה",
     "Translate into": "לתרגם ל־",

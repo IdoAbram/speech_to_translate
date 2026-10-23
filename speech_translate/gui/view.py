@@ -26,7 +26,7 @@ class View(QtWidgets.QWidget):
         column = QtWidgets.QVBoxLayout(self)
         column.setContentsMargins(32, 16, 32, 20)
         column.setSpacing(14)
-        column.addLayout(self._top_bar())
+        column.addWidget(self._top_bar())
         self.pages = QtWidgets.QStackedWidget()
         self._add_pages()
         column.addWidget(self.pages, 1)
@@ -34,10 +34,14 @@ class View(QtWidgets.QWidget):
         column.addWidget(self.status)
         self.show_page("start")
 
-    def _top_bar(self) -> QtWidgets.QHBoxLayout:
-        """The app's name, then Full screen, Settings, and Exit."""
-        row = QtWidgets.QHBoxLayout()
-        row.addWidget(widgets.label("SongWords", "appName"), 1)
+    def _top_bar(self) -> QtWidgets.QWidget:
+        """The app's name top left; Full screen, Settings, Exit top right."""
+        bar = QtWidgets.QWidget()
+        bar.setLayoutDirection(QtCore.Qt.LayoutDirection.LeftToRight)
+        row = QtWidgets.QHBoxLayout(bar)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.addWidget(widgets.label("SongWords", "appName"))
+        row.addStretch()
         for text, signal, name in (
             (i18n.tr("Full screen"), self.fullscreen_requested, ""),
             (i18n.tr("Settings"), self.settings_requested, ""),
@@ -46,7 +50,7 @@ class View(QtWidgets.QWidget):
             action = widgets.button(text, name)
             action.clicked.connect(signal)
             row.addWidget(action)
-        return row
+        return bar
 
     def _add_pages(self) -> None:
         """Create the four screens in their order in PAGES."""

@@ -27,7 +27,7 @@ class ChosenPage(QtWidgets.QWidget):
         super().__init__()
         column = QtWidgets.QVBoxLayout(self)
         column.addStretch()
-        column.addWidget(widgets.centered(self._card(), 980))
+        column.addWidget(widgets.centered(self._card(), 1180))
         column.addStretch()
 
     def _card(self) -> QtWidgets.QFrame:
@@ -37,6 +37,7 @@ class ChosenPage(QtWidgets.QWidget):
         column.setContentsMargins(32, 28, 32, 28)
         column.setSpacing(24)
         column.addLayout(self._song_row())
+        column.addWidget(widgets.divider())
         self.languages = language_bar.LanguageBar()
         column.addLayout(centered_row(self.languages))
         self.translate = widgets.button(i18n.tr("Translate"), "bigPrimary")
@@ -45,23 +46,22 @@ class ChosenPage(QtWidgets.QWidget):
         return frame
 
     def _song_row(self) -> QtWidgets.QHBoxLayout:
-        """Show the song's name and a way to pick a different one."""
+        """One line: icon, 'The chosen song:', its name, Another song."""
         row = QtWidgets.QHBoxLayout()
-        row.setSpacing(16)
-        names = QtWidgets.QVBoxLayout()
-        names.addWidget(widgets.label(i18n.tr("The chosen song"), "caption"))
-        self.song = widgets.label("", "songName")
-        names.addWidget(self.song)
+        row.setSpacing(14)
+        caption = widgets.label(i18n.tr("The chosen song:"), "songCaption")
+        self.song = widgets.SongLabel()
         other = widgets.button(i18n.tr("Another song"))
         other.clicked.connect(self.other_song)
-        row.addWidget(widgets.music_icon(64))
-        row.addLayout(names, 1)
+        row.addWidget(widgets.music_icon(52))
+        row.addWidget(caption)
+        row.addWidget(self.song, 1)
         row.addWidget(other)
         return row
 
     def set_song(self, name: str) -> None:
         """Name the chosen song."""
-        self.song.setText(name)
+        self.song.set_song(name)
 
 
 class ResultPage(QtWidgets.QWidget):
@@ -105,7 +105,8 @@ class ResultPage(QtWidgets.QWidget):
     def _song_row(self) -> QtWidgets.QHBoxLayout:
         """Name the song and offer a clear way to start a new one."""
         row = QtWidgets.QHBoxLayout()
-        self.song = widgets.label("", "songName")
+        row.setSpacing(14)
+        self.song = widgets.SongLabel()
         new_song = widgets.button(i18n.tr("+ New song"), "newSong")
         new_song.clicked.connect(self.new_song)
         row.addWidget(widgets.music_icon(44))
@@ -187,4 +188,4 @@ class ResultPage(QtWidgets.QWidget):
 
     def set_song(self, name: str) -> None:
         """Name the song whose words are shown."""
-        self.song.setText(name)
+        self.song.set_song(name)
