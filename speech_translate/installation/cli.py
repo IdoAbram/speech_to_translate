@@ -38,7 +38,7 @@ def install_all(models: pathlib.Path, size: str) -> None:
     manifest = models / "manifest.json"
     record(manifest, f"speech/{size}", speech_models.install(models, size))
     print("Preparing multilingual translation…", flush=True)
-    record(manifest, "translation/m2m100", multilingual.install(models))
+    record(manifest, "translation/nllb", multilingual.install(models))
 
 
 def main(argv=None) -> int:

@@ -2,9 +2,11 @@
 
 import pathlib
 
+from speech_translate.translation import packages
+
 
 class MultilingualTokenizer:
-    """Encode M2M100 text with the same language markers as its tokenizer."""
+    """Encode NLLB-200 text with the same language markers as its tokenizer."""
 
     def __init__(self, path: pathlib.Path, source: str):
         """Load only SentencePiece; Transformers is not needed at runtime."""
@@ -13,7 +15,7 @@ class MultilingualTokenizer:
         self.processor = sentencepiece.SentencePieceProcessor(
             model_file=str(path / "sentencepiece.bpe.model")
         )
-        self.source = f"__{source}__"
+        self.source = packages.language_token(source)
 
     def encode(self, text: str, out_type=str) -> list[str]:
         """Return content tokens; language markers are added at inference."""
@@ -24,5 +26,5 @@ class MultilingualTokenizer:
         return self.processor.decode(tokens)
 
     def prepare(self, tokens: list[str]) -> list[str]:
-        """Add M2M100's source language and end-of-sequence markers."""
+        """Add NLLB-200's source language and end-of-sequence markers."""
         return [self.source, *tokens, "</s>"]

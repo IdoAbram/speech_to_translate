@@ -108,7 +108,7 @@ def test_nonshrinking_retries_stop_and_cancellation_wins(monkeypatch):
 
 
 def test_multilingual_assets_and_markers(tmp_path, monkeypatch):
-    """Validate local files and reproduce the published M2M100 token format."""
+    """Validate local files and reproduce the published NLLB token format."""
     import sentencepiece
 
     with pytest.raises(config.AppError, match="upgraded"):
@@ -121,7 +121,7 @@ def test_multilingual_assets_and_markers(tmp_path, monkeypatch):
     )
     tokenizer = tokenizers.MultilingualTokenizer(path, "he")
     assert tokenizer.prepare(tokenizer.encode("שלום")) == [
-        "__he__",
+        "heb_Hebr",
         *"שלום",
         "</s>",
     ]

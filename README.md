@@ -139,8 +139,9 @@ repository revision across retries and records provenance in
 Those large conversion dependencies are not part of the desktop runtime.
 Setup may need several GB of temporary space in `.downloads/`.
 
-After setup, the app runs offline. Legacy Argos model folders from an earlier
-version are left on disk but are no longer used or shipped by the build.
+After setup, the app runs offline. Legacy Argos and M2M100 model folders from
+earlier versions are left on disk but are no longer used or shipped; delete
+`models/translation/m2m100` to free about 0.5 GB.
 Missing models produce an actionable error instead of a network request.
 
 The stages also have independent CLI commands:
@@ -225,7 +226,7 @@ manual runs from the Actions tab. Its stages run in this order:
 
 1. **Prebuild:** create a Python 3.13 virtual environment, check dependencies,
    Google-style Python conventions, formatting, and workflow syntax.
-2. **Build:** install/cache the Whisper small and INT8 M2M100 runtime models,
+2. **Build:** install/cache the Whisper small and INT8 NLLB-200 runtime models,
    embed them with Python in `SongWords.exe`, and record its SHA-256 checksum,
    commit, model revisions, and licenses.
 3. **Test:** check the candidate checksum, run pytest with at least 95% coverage,
@@ -252,8 +253,9 @@ builds reuse completed model files. Models and generated EXEs stay out of Git.
 
 - [faster-whisper](https://github.com/SYSTRAN/faster-whisper)
 - [Whisper small weights](https://huggingface.co/Systran/faster-whisper-small)
-- [Meta M2M100 model card and supported languages](https://huggingface.co/facebook/m2m100_418M)
-- [CTranslate2 M2M100 inference format](https://opennmt.net/CTranslate2/guides/transformers.html#m2m-100)
+- [Meta NLLB-200 distilled 600M model card](https://huggingface.co/facebook/nllb-200-distilled-600M)
+- [CTranslate2 NLLB inference format](https://opennmt.net/CTranslate2/guides/transformers.html#nllb)
+- [Groq API documentation](https://console.groq.com/docs)
 - [Qt for Python](https://doc.qt.io/qtforpython-6/)
 - [PyInstaller](https://pyinstaller.org/)
 

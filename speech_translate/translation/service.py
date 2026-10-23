@@ -59,7 +59,7 @@ def translate_document(text, source, target, models_dir, operation) -> str:
     lines = passages.prepare(text, tokenizer)
     with engine.open_engine(path) as model:
         translator = passages.PassageTranslator(
-            model, tokenizer, f"__{target}__", operation
+            model, tokenizer, packages.language_token(target), operation
         )
         return translate_lines(lines, translator, operation)
 

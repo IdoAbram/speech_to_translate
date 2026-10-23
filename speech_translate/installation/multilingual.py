@@ -1,4 +1,4 @@
-"""Install the official M2M100 model and quantize it for offline CPUs."""
+"""Install the official NLLB-200 model and quantize it for offline CPUs."""
 
 import pathlib
 import shutil
@@ -7,12 +7,14 @@ from speech_translate import config
 from speech_translate.installation import conversion, downloads, speech_models
 from speech_translate.translation import packages
 
-REPOSITORY = "facebook/m2m100_418M"
+# Distilled 600M: clearly better than M2M100 418M at a similar CPU cost.
+REPOSITORY = "facebook/nllb-200-distilled-600M"
 FILES = (
     "config.json",
+    "generation_config.json",
     "pytorch_model.bin",
     "sentencepiece.bpe.model",
-    "vocab.json",
+    "tokenizer.json",
     "tokenizer_config.json",
     "special_tokens_map.json",
     "README.md",
@@ -33,12 +35,12 @@ def fetch_source(path: pathlib.Path) -> dict:
 
 def install(models: pathlib.Path) -> dict:
     """Reuse completed weights or finish a resumable local conversion."""
-    destination = models / "translation" / "m2m100"
+    destination = models / "translation" / "nllb"
     marker = destination / ".complete"
     if marker.exists():
         packages.multilingual_path(models)
         return {}
-    source = config.ROOT / ".downloads" / "m2m100-source"
+    source = config.ROOT / ".downloads" / "nllb-source"
     info = fetch_source(source)
     destination.mkdir(parents=True, exist_ok=True)
     conversion.convert(source, destination / "model")
