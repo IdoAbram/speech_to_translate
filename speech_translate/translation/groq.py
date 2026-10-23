@@ -14,7 +14,7 @@ import time
 import urllib.error
 import urllib.request
 
-from speech_translate import config
+from speech_translate import config, i18n, settings
 
 KEY_FILE = "groq_key.txt"
 DEFAULT_MODEL = "openai/gpt-oss-120b"
@@ -63,6 +63,11 @@ def api_key(root=config.ROOT) -> str:
     return key
 
 
+def active_key() -> str:
+    """Return the key only while online translation is switched on."""
+    return api_key() if settings.online_enabled() else ""
+
+
 def user_key_path() -> pathlib.Path:
     """Locate the key saved from the app for the current Windows user."""
     return config.settings_dir() / KEY_FILE
@@ -72,7 +77,9 @@ def save_key(key: str) -> None:
     """Store a pasted key for this Windows user, replacing an earlier one."""
     key = key.strip()
     if not key or any(character.isspace() for character in key):
-        raise config.AppError("Paste the whole Groq key, without spaces.")
+        raise config.AppError(
+            i18n.tr("Paste the whole Groq key, without spaces.")
+        )
     path = user_key_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(key, encoding="utf-8")
@@ -108,7 +115,11 @@ def translate_parts(lines, source, target, key, operation) -> list[str]:
     translated = []
     for index, part in enumerate(parts):
         operation.report(
-            f"Translating with Groq: part {index + 1} of {len(parts)}…",
+            i18n.tr(
+                "Translating with Groq: part {part} of {total}…",
+                part=index + 1,
+                total=len(parts),
+            ),
             int(100 * index / len(parts)),
         )
         translated += request_lines(list(part), source, target, key, operation)
@@ -119,7 +130,7 @@ def request_lines(lines, source, target, key, operation) -> list[str]:
     """Ask Groq again after broken JSON, a wrong count, or a rate limit."""
     model = os.environ.get("GROQ_MODEL", DEFAULT_MODEL)
     body = request_body(build_prompt(lines, source, target), model)
-    failure = "Groq could not return the song line by line. Try again."
+    failure = i18n.tr("Groq could not return the song line by line. Try again.")
     for _ in range(ATTEMPTS):
         operation.check()
         try:
@@ -139,11 +150,14 @@ def wait_for_limit(seconds: float, operation) -> None:
     """Pause for the free plan's reset, staying responsive to Cancel."""
     if seconds > MAX_WAIT_SECONDS:
         raise config.AppError(
-            "Groq's free daily limit was reached. Try again later."
+            i18n.tr("Groq's free daily limit was reached. Try again later.")
         )
     deadline = time.monotonic() + seconds
     while (left := deadline - time.monotonic()) > 0:
-        operation.report(f"Groq free limit: waiting {int(left) + 1} s…")
+        seconds = int(left) + 1
+        operation.report(
+            i18n.tr("Groq free limit: waiting {seconds} s…", seconds=seconds)
+        )
         time.sleep(min(1.0, left))
 
 
@@ -202,7 +216,7 @@ def post(body: dict, key: str) -> dict:
         raise http_error(error) from error
     except (urllib.error.URLError, TimeoutError) as error:
         raise config.AppError(
-            "Groq could not be reached. Check the internet connection."
+            i18n.tr("Groq could not be reached. Check the internet connection.")
         ) from error
 
 
@@ -213,7 +227,7 @@ def http_error(error: urllib.error.HTTPError) -> config.AppError:
     except (AttributeError, OSError):
         details = ""
     if error.code == 400 and "json_validate_failed" in details:
-        return BadReply("Groq returned an unreadable answer.")
+        return BadReply(i18n.tr("Groq returned an unreadable answer."))
     if error.code == 429:
         return RateLimited(http_message(429), retry_after(error.headers))
     return config.AppError(http_message(error.code))
@@ -230,14 +244,21 @@ def retry_after(headers) -> float:
 def http_message(status: int) -> str:
     """Explain the HTTP failures a user can act on."""
     if status == 429:
-        return "Groq's free limit was reached. Wait a minute and try again."
+        return i18n.tr(
+            "Groq's free limit was reached. Wait a minute and try again."
+        )
     if status in (401, 403):
-        return "Groq rejected the key. Check it under Online translation."
+        return i18n.tr(
+            "Groq rejected the key. Check it under Online translation."
+        )
     if status == 404:
-        return "This Groq model is not available. Check GROQ_MODEL."
+        return i18n.tr("This Groq model is not available. Check GROQ_MODEL.")
     if status == 400:
-        return "Groq rejected the request. Try another GROQ_MODEL."
-    return f"Groq failed with HTTP error {status}. Try again later."
+        return i18n.tr("Groq rejected the request. Try another GROQ_MODEL.")
+    return i18n.tr(
+        "Groq failed with HTTP error {status}. Try again later.",
+        status=status,
+    )
 
 
 def parse_lines(response: dict) -> list[str]:
@@ -245,11 +266,13 @@ def parse_lines(response: dict) -> list[str]:
     choices = response.get("choices") or []
     text = choices[0].get("message", {}).get("content") if choices else None
     if not text:
-        raise BadReply("Groq returned no translation. Try again.")
+        raise BadReply(i18n.tr("Groq returned no translation. Try again."))
     try:
         lines = json.loads(text).get("lines")
     except (json.JSONDecodeError, AttributeError) as error:
-        raise BadReply("Groq returned an unreadable answer.") from error
+        raise BadReply(
+            i18n.tr("Groq returned an unreadable answer.")
+        ) from error
     if not isinstance(lines, list):
-        raise BadReply("Groq returned an unreadable answer.")
+        raise BadReply(i18n.tr("Groq returned an unreadable answer."))
     return [" ".join(str(line).split()) for line in lines]

@@ -24,22 +24,41 @@ libraries for replacement and inspection.
 
 ## Use the app
 
-1. Drop one MP3 or click the large file area.
-2. Wait while the app identifies the language and transcribes the audio.
-3. Review or edit the transcript.
-4. Choose the translation language and click **Translate**.
+The desktop app speaks Hebrew, is laid out right to left, and uses a calm
+light theme (cream background, white cards, one warm accent). It has four
+screens; `docs/SongWords-design-flow.pdf` shows them.
 
-Both texts appear side by side, with Copy and Save actions and native Hebrew
-right-to-left layout. The app starts fullscreen. **F11** or the visible
-**Window / Fullscreen** button toggles fullscreen; **Esc** returns to a maximized
+1. **No song yet:** one large card in the middle. Click it to choose an MP3,
+   or drag a file onto it (or anywhere on the window).
+2. **Song chosen:** pick the song's language (Polish by default) and the
+   language to translate into, then click the big **Translate** button. The
+   song is heard in the chosen language, so there is no guessing, and the
+   translation follows automatically.
+3. **Working:** one thick progress bar with a percentage, the elapsed time,
+   and three plain steps (reading the song, hearing the words, translating)
+   that are ticked off. **Cancel** stops after the current step.
+4. **Translated:** two text boxes side by side: the song's words and the
+   translation. Both use the same text size and keep the song's blank verse
+   lines, so line 12 of one sits beside line 12 of the other; a faint number
+   marks each line, and scrolling one box scrolls the other. Fix a misheard
+   word by typing in the song box (the translation is then cleared until you
+   click **Translate** again). In the translation box, hovering highlights a
+   line and **clicking copies that line** for the video editor. Each box has
+   **Copy**; the translation also has **Save…**. **+ New song** returns to
+   screen 1.
+
+**Settings** holds what grandpa never needs: the switch for better
+translation over the internet (Groq) with its key, and full screen or
+window. **F11** also toggles full screen and **Esc** returns to a maximized
 window. **Exit** closes the app.
 
-Language settings contains an optional override for incorrect detections.
-Selecting an override transcribes the current recording again. Changing the
-transcript or translation language clears the previous translation.
-Finished translations are remembered while the app is open: translating the
-same transcript into a language used earlier shows the result instantly.
-Editing the transcript translates it again.
+Finished translations are remembered while the app is open: switching back
+to a language used earlier shows the result instantly. A result produced by
+the offline fallback is shown with an amber note and is not remembered.
+
+Interface text lives in `speech_translate/i18n/`. Messages are written in
+English and looked up in `hebrew.py`; the command line stays English. A test
+fails if any message lacks a Hebrew translation.
 
 The loading display reports elapsed time and **confirmed audio coverage**.
 Model loading and language detection have an indeterminate indicator. During

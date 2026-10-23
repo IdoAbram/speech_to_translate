@@ -2,7 +2,7 @@
 
 import pathlib
 
-from speech_translate import config
+from speech_translate import config, i18n
 
 # NLLB-200 names languages with FLORES-200 codes instead of ISO codes.
 LANGUAGE_TOKENS = {"en": "eng_Latn", "he": "heb_Hebr", "pl": "pol_Latn"}
@@ -34,7 +34,10 @@ def multilingual_path(models_dir) -> pathlib.Path:
     )
     if not all((path / name).is_file() for name in required):
         raise config.AppError(
-            "The upgraded translation model is missing. Run setup_models.py "
-            "on a connected computer, or copy the complete models folder."
+            i18n.tr(
+                "The upgraded translation model is missing. Run "
+                "setup_models.py on a connected computer, or copy the "
+                "complete models folder."
+            )
         )
     return path

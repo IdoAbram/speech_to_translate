@@ -40,7 +40,7 @@ def test_unsupported_detection_explains_override():
     """Explain unsupported detection instead of silently choosing a language."""
     model = mock.Mock()
     model.detect_language.return_value = ("fr", 0.95, [])
-    with pytest.raises(config.AppError, match="Language settings"):
+    with pytest.raises(config.AppError, match="Settings"):
         detection.detect(model, [0.1], None, config.Operation())
 
 

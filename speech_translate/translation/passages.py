@@ -3,7 +3,7 @@
 import dataclasses
 import re
 
-from speech_translate import config
+from speech_translate import config, i18n
 from speech_translate.translation import chunking, engine
 
 
@@ -66,7 +66,9 @@ class PassageTranslator:
                 self.model, self.tokenizer, tokens, self.prefix
             )
             if identifiers(source) - identifiers(result):
-                raise engine.DecodeLimit("A numeric identifier was omitted.")
+                raise engine.DecodeLimit(
+                    i18n.tr("A numeric identifier was omitted.")
+                )
             return result
         except engine.DecodeLimit:
             pieces = split_retry(tokens, self.tokenizer)
@@ -82,5 +84,7 @@ def split_retry(tokens, tokenizer) -> list:
         for part in (text[:cut], text[cut:])
     ]
     if not cut or any(not part or len(part) >= len(tokens) for part in pieces):
-        raise config.AppError("The model could not finish this passage.")
+        raise config.AppError(
+            i18n.tr("The model could not finish this passage.")
+        )
     return pieces

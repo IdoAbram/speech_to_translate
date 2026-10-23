@@ -2,10 +2,11 @@
 
 from PySide6 import QtWidgets
 
-from speech_translate import config
+from speech_translate import config, i18n
 from speech_translate.translation import groq
 
 KEYS_URL = "https://console.groq.com/keys"
+LINK = f'<a href="{KEYS_URL}" style="color:#77ddc6">console.groq.com</a>'
 
 
 class KeyDialog(QtWidgets.QDialog):
@@ -14,13 +15,15 @@ class KeyDialog(QtWidgets.QDialog):
     def __init__(self, parent=None):
         """Show the explanation, a hidden key field, and the actions."""
         super().__init__(parent)
-        self.setWindowTitle("Online translation")
+        self.setWindowTitle(i18n.tr("Online translation"))
         layout = QtWidgets.QVBoxLayout(self)
         layout.setSpacing(14)
         layout.addWidget(self._explanation())
         self.field = QtWidgets.QLineEdit()
         self.field.setEchoMode(QtWidgets.QLineEdit.EchoMode.Password)
-        self.field.setPlaceholderText("Paste the Groq key (starts with gsk_)")
+        self.field.setPlaceholderText(
+            i18n.tr("Paste the key here (it starts with gsk_)")
+        )
         layout.addWidget(self.field)
         self.message = QtWidgets.QLabel()
         layout.addWidget(self.message)
@@ -29,11 +32,13 @@ class KeyDialog(QtWidgets.QDialog):
     def _explanation(self) -> QtWidgets.QLabel:
         """Say what Groq does, where to get a key, and what is sent."""
         label = QtWidgets.QLabel(
-            "Groq translates slang and idioms much better than the offline "
-            "model. Get a free key (no card needed) at "
-            f'<a href="{KEYS_URL}" style="color:#77ddc6">console.groq.com'
-            "</a> and paste it below. When you translate, the lyrics are "
-            "sent to Groq. Without internet the offline model is used."
+            i18n.tr(
+                "Online translation (Groq) understands slang and idioms much "
+                "better. Get a free key (no card needed) at {link} and paste "
+                "it below. When you translate, the lyrics are sent to Groq. "
+                "Without internet, the translation is done on this computer.",
+                link=LINK,
+            )
         )
         label.setWordWrap(True)
         label.setOpenExternalLinks(True)
@@ -42,12 +47,12 @@ class KeyDialog(QtWidgets.QDialog):
     def _buttons(self) -> QtWidgets.QHBoxLayout:
         """Offer turning online translation off, cancelling, and saving."""
         row = QtWidgets.QHBoxLayout()
-        self.remove_button = QtWidgets.QPushButton("Turn off")
+        self.remove_button = QtWidgets.QPushButton(i18n.tr("Turn off"))
         self.remove_button.setEnabled(groq.user_key_path().is_file())
         self.remove_button.clicked.connect(self.remove)
-        cancel = QtWidgets.QPushButton("Cancel")
+        cancel = QtWidgets.QPushButton(i18n.tr("Cancel"))
         cancel.clicked.connect(self.reject)
-        save = QtWidgets.QPushButton("Save")
+        save = QtWidgets.QPushButton(i18n.tr("Save"))
         save.setObjectName("primary")
         save.setDefault(True)
         save.clicked.connect(self.save)
@@ -71,6 +76,8 @@ class KeyDialog(QtWidgets.QDialog):
         try:
             groq.remove_key()
         except OSError as error:
-            self.message.setText(f"The key could not be removed: {error}")
+            self.message.setText(
+                i18n.tr("The key could not be removed: {error}", error=error)
+            )
             return
         self.accept()

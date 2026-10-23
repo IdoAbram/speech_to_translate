@@ -78,13 +78,13 @@ def test_real_translation_cancel():
 
 
 def test_real_desktop_pipeline(desktop, real_mp3, qapp):
-    """Use real models inside the actual GUI worker and keep both results."""
+    """Hear an English song and translate it with one click, as in the app."""
     desktop.accept_file(str(real_mp3))
-    helpers.wait_runner(desktop.runner, qapp, timeout=120)
-    transcript = desktop.view.original.text()
-    assert "meeting" in transcript.lower(), desktop.view.status.text()
-    desktop.translate_text()
-    helpers.wait_runner(desktop.runner, qapp, timeout=120)
-    assert desktop.view.translated.text(), desktop.view.status.text()
-    assert desktop.view.original.text() == transcript
-    assert not desktop.view.translated.isHidden()
+    desktop.view.chosen.languages.set_languages("en", "he")
+    desktop.view.chosen.translate.click()
+    helpers.wait_runner(desktop.runner, qapp, timeout=240)
+    result = desktop.view.result
+    words = "\n".join(result.source_lines())
+    assert "meeting" in words.lower(), desktop.view.status.text()
+    assert result.translated_lines(), desktop.view.status.text()
+    assert desktop.view.page() == "result"

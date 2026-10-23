@@ -2,7 +2,7 @@
 
 import pathlib
 
-from speech_translate import config
+from speech_translate import config, i18n
 from speech_translate.speech import engine, records
 
 
@@ -10,9 +10,9 @@ def validate_audio(audio_path: str | pathlib.Path) -> pathlib.Path:
     """Require an existing, nonempty audio file before loading any model."""
     path = pathlib.Path(audio_path)
     if not path.is_file():
-        raise config.AppError("Choose an existing MP3 file.")
+        raise config.AppError(i18n.tr("Choose an existing MP3 file."))
     if not path.stat().st_size:
-        raise config.AppError("This audio file is empty.")
+        raise config.AppError(i18n.tr("This audio file is empty."))
     return path
 
 
@@ -29,10 +29,10 @@ def transcribe(
     operation = config.Operation(progress, cancel)
     operation.check()
     path, weights = prepare_input(audio_path, language, model_size, models_dir)
-    operation.report("Loading the speech model…")
+    operation.report(i18n.tr("Loading the speech model…"))
     with engine.open_model(weights) as model:
         result = engine.recognize(model, path, language, operation)
-    operation.report("Transcript ready.", 100)
+    operation.report(i18n.tr("Transcript ready."), 100)
     return result
 
 

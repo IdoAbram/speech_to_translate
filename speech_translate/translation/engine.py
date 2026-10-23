@@ -4,7 +4,7 @@ import contextlib
 import gc
 import pathlib
 
-from speech_translate import config
+from speech_translate import config, i18n
 
 OUTPUT_LIMIT = 768
 
@@ -46,7 +46,7 @@ def translate_tokens(engine, tokenizer, tokens: list, prefix: str) -> str:
     )[0]
     translated = result.hypotheses[0]
     if len(translated) >= OUTPUT_LIMIT:
-        raise DecodeLimit("The decoder needs a smaller passage.")
+        raise DecodeLimit(i18n.tr("The decoder needs a smaller passage."))
     if prefix and translated and translated[0] == prefix:
         translated = translated[1:]
     return decode_output(tokenizer, translated)
@@ -56,5 +56,7 @@ def decode_output(tokenizer, translated) -> str:
     """Normalize output spacing and reject empty model predictions."""
     text = tokenizer.decode(translated).replace("▁", " ").strip()
     if not text:
-        raise config.AppError("A line could not be translated. Try editing it.")
+        raise config.AppError(
+            i18n.tr("A line could not be translated. Try editing it.")
+        )
     return " ".join(text.split())

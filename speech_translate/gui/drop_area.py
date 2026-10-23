@@ -4,6 +4,9 @@ import pathlib
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from speech_translate import i18n
+from speech_translate.gui import widgets
+
 
 def dropped_mp3(mime: QtCore.QMimeData) -> str:
     """Accept exactly one local MP3 file, rejecting directories and URLs."""
@@ -20,20 +23,40 @@ class DropArea(QtWidgets.QPushButton):
     selected = QtCore.Signal(str)
 
     def __init__(self):
-        """Create the initial empty drop target."""
-        super().__init__("Drop an MP3 here\nor click to choose a song")
+        """Create one large card: icon, title, and how to choose a song."""
+        super().__init__()
         self.setAcceptDrops(True)
-        self.setMinimumHeight(100)
         self.setObjectName("dropArea")
+        self.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
+        self.setAccessibleName(i18n.tr("Choose a song"))
+        column = QtWidgets.QVBoxLayout(self)
+        column.setSpacing(14)
+        column.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        for widget in self._contents():
+            widget.setAttribute(
+                QtCore.Qt.WidgetAttribute.WA_TransparentForMouseEvents
+            )
+            column.addWidget(widget, 0, QtCore.Qt.AlignmentFlag.AlignCenter)
         self.clicked.connect(self.choose_file)
+
+    def _contents(self) -> list:
+        """Return the icon and the three lines of text, largest first."""
+        return [
+            widgets.music_icon(96),
+            widgets.label(i18n.tr("Choose a song"), "bigTitle"),
+            widgets.label(
+                i18n.tr("Click here to choose a song file (MP3)"), "hint"
+            ),
+            widgets.label(i18n.tr("or drag the file here"), "caption"),
+        ]
 
     def choose_file(self) -> None:
         """Open an MP3-only file picker."""
         path, _ = QtWidgets.QFileDialog.getOpenFileName(
             self,
-            "Choose a song",
+            i18n.tr("Choose a song"),
             "",
-            "MP3 audio (*.mp3)",
+            i18n.tr("MP3 songs (*.mp3)"),
         )
         if path:
             self.selected.emit(path)

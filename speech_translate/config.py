@@ -7,6 +7,8 @@ import sys
 import threading
 from collections.abc import Callable
 
+from speech_translate import i18n
+
 ROOT = (
     pathlib.Path(sys.executable).resolve().parent
     if getattr(sys, "frozen", False)
@@ -43,10 +45,15 @@ def settings_dir() -> pathlib.Path:
     return pathlib.Path(base) / "SongWords"
 
 
+def language_name(code: str) -> str:
+    """Name a supported language in the current interface language."""
+    return i18n.tr(LANGUAGES[code])
+
+
 def validate_language(code: str) -> None:
     """Raise AppError for a language outside the supported set."""
     if code not in LANGUAGES:
-        raise AppError("Choose English, Hebrew, or Polish.")
+        raise AppError(i18n.tr("Choose English, Hebrew, or Polish."))
 
 
 def offline_mode() -> None:
@@ -71,7 +78,9 @@ class Operation:
     def check(self) -> None:
         """Raise Cancelled if cancellation was requested."""
         if self.cancel is not None and self.cancel.is_set():
-            raise Cancelled("Cancelled. Your completed transcript is kept.")
+            raise Cancelled(
+                i18n.tr("Cancelled. Your completed transcript is kept.")
+            )
 
     def report(self, message: str, percent: int = -1) -> None:
         """Check cancellation and report progress; -1 means indeterminate."""
