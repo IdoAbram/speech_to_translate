@@ -17,13 +17,19 @@ KEY_FILE = "groq_key.txt"
 DEFAULT_MODEL = "openai/gpt-oss-120b"
 API_URL = "https://api.groq.com/openai/v1/chat/completions"
 TIMEOUT_SECONDS = 120
-ATTEMPTS = 2
+ATTEMPTS = 3
+# Models that accept strict JSON schemas, per Groq's structured-output docs.
+STRICT_SCHEMA_MODELS = ("openai/gpt-oss", "qwen/qwen3.8", "meta-models/muse")
 SCHEMA = {
     "type": "object",
     "properties": {"lines": {"type": "array", "items": {"type": "string"}}},
     "required": ["lines"],
     "additionalProperties": False,
 }
+
+
+class BadReply(config.AppError):
+    """Groq produced a malformed answer that another attempt may fix."""
 
 
 def api_key(root=config.ROOT) -> str:
@@ -63,16 +69,19 @@ def translate_lyrics(text, source, target, key, operation) -> str:
 
 
 def request_lines(lines, source, target, key, operation) -> list[str]:
-    """Ask Groq again if it merges or splits lines on the first try."""
+    """Ask Groq again after broken JSON or a wrong number of lines."""
     model = os.environ.get("GROQ_MODEL", DEFAULT_MODEL)
     body = request_body(build_prompt(lines, source, target), model)
     for _ in range(ATTEMPTS):
         operation.check()
-        result = parse_lines(post(body, key))
+        try:
+            result = parse_lines(post(body, key))
+        except BadReply:
+            continue
         if len(result) == len(lines):
             return result
     raise config.AppError(
-        "Groq returned a different number of lines. Try again."
+        "Groq could not return the song line by line. Try again."
     )
 
 
@@ -90,15 +99,22 @@ def build_prompt(lines, source, target) -> str:
 
 
 def request_body(prompt: str, model: str) -> dict:
-    """Request a strict JSON object holding the translated lines."""
+    """Request a JSON object holding the translated lines."""
     return {
         "model": model,
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.2,
-        "response_format": {
-            "type": "json_schema",
-            "json_schema": {"name": "lyrics", "strict": True, "schema": SCHEMA},
-        },
+        "response_format": response_format(model),
+    }
+
+
+def response_format(model: str) -> dict:
+    """Use a strict schema where Groq supports it, else plain JSON mode."""
+    if not model.startswith(STRICT_SCHEMA_MODELS):
+        return {"type": "json_object"}
+    return {
+        "type": "json_schema",
+        "json_schema": {"name": "lyrics", "strict": True, "schema": SCHEMA},
     }
 
 
@@ -117,11 +133,22 @@ def post(body: dict, key: str) -> dict:
         with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as reply:
             return json.loads(reply.read().decode("utf-8"))
     except urllib.error.HTTPError as error:
-        raise config.AppError(http_message(error.code)) from error
+        raise http_error(error) from error
     except (urllib.error.URLError, TimeoutError) as error:
         raise config.AppError(
             "Groq could not be reached. Check the internet connection."
         ) from error
+
+
+def http_error(error: urllib.error.HTTPError) -> config.AppError:
+    """Mark Groq's rejected JSON generations as worth another attempt."""
+    try:
+        details = error.read().decode("utf-8", "replace")
+    except (AttributeError, OSError):
+        details = ""
+    if error.code == 400 and "json_validate_failed" in details:
+        return BadReply("Groq returned an unreadable answer.")
+    return config.AppError(http_message(error.code))
 
 
 def http_message(status: int) -> str:
@@ -130,8 +157,10 @@ def http_message(status: int) -> str:
         return "Groq's free limit was reached. Wait a minute and try again."
     if status in (401, 403):
         return f"Groq rejected the key. Check {KEY_FILE}."
-    if status in (400, 404):
-        return "Groq rejected the request. The model may be retired."
+    if status == 404:
+        return "This Groq model is not available. Check GROQ_MODEL."
+    if status == 400:
+        return "Groq rejected the request. Try another GROQ_MODEL."
     return f"Groq failed with HTTP error {status}. Try again later."
 
 
@@ -140,11 +169,11 @@ def parse_lines(response: dict) -> list[str]:
     choices = response.get("choices") or []
     text = choices[0].get("message", {}).get("content") if choices else None
     if not text:
-        raise config.AppError("Groq returned no translation. Try again.")
+        raise BadReply("Groq returned no translation. Try again.")
     try:
         lines = json.loads(text).get("lines")
     except (json.JSONDecodeError, AttributeError) as error:
-        raise config.AppError("Groq returned an unreadable answer.") from error
+        raise BadReply("Groq returned an unreadable answer.") from error
     if not isinstance(lines, list):
-        raise config.AppError("Groq returned an unreadable answer.")
+        raise BadReply("Groq returned an unreadable answer.")
     return [" ".join(str(line).split()) for line in lines]

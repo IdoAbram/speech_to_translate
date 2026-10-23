@@ -50,14 +50,19 @@ def test_retries_when_line_count_differs(urlopen):
     answer(urlopen, reply(["merged"]), reply(["a", "b", "c"]))
     result = groq.translate_lyrics(SONG, "pl", "he", "k", config.Operation())
     assert result.split("\n") == ["a", "b", "", "c", ""]
-    answer(urlopen, reply(["x"]), reply(["y"]))
-    with pytest.raises(config.AppError, match="number of lines"):
+    answer(urlopen, reply(["x"]), reply(["y"]), reply(["z"]))
+    with pytest.raises(config.AppError, match="line by line"):
         groq.translate_lyrics(SONG, "pl", "he", "k", config.Operation())
 
 
 @pytest.mark.parametrize(
     ("status", "message"),
-    [(429, "free limit"), (401, "groq_key.txt"), (404, "retired")],
+    [
+        (429, "free limit"),
+        (401, "groq_key.txt"),
+        (404, "not available"),
+        (400, "another"),
+    ],
 )
 def test_http_errors_are_explained(urlopen, monkeypatch, status, message):
     """Turn quota, key, and model errors into actionable messages."""
@@ -65,6 +70,16 @@ def test_http_errors_are_explained(urlopen, monkeypatch, status, message):
     urlopen.side_effect = urllib.error.HTTPError("u", status, "", {}, None)
     with pytest.raises(config.AppError, match=message):
         groq.translate_lyrics(SONG, "pl", "en", "k", config.Operation())
+
+
+def test_broken_json_is_retried(urlopen):
+    """Groq sometimes rejects its own JSON; another attempt usually works."""
+    details = io.BytesIO(b'{"error": {"code": "json_validate_failed"}}')
+    broken = urllib.error.HTTPError("u", 400, "", {}, details)
+    answer(urlopen, reply(["a", "b", "c"]))
+    urlopen.side_effect = [broken, urlopen.return_value]
+    result = groq.translate_lyrics(SONG, "pl", "en", "k", config.Operation())
+    assert result.split("\n") == ["a", "b", "", "c", ""]
 
 
 def test_offline_computer_gets_clear_error(urlopen):
@@ -99,10 +114,18 @@ def test_key_from_environment_or_file(tmp_path, monkeypatch):
 def test_service_prefers_groq_when_configured(urlopen, monkeypatch):
     """Use Groq with a key and never load the offline model."""
     monkeypatch.setenv("GROQ_API_KEY", "k")
-    monkeypatch.setenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+    monkeypatch.setenv("GROQ_MODEL", "llama-test")
     answer(urlopen, reply(["a", "b", "c"]))
     result = service.translate(SONG, "pl", "he", models_dir="missing")
     assert result.split("\n") == ["a", "b", "", "c", ""]
-    assert json.loads(urlopen.call_args.args[0].data)["model"].startswith(
-        "llama"
-    )
+    body = json.loads(urlopen.call_args.args[0].data)
+    assert body["model"] == "llama-test"
+    assert body["response_format"] == {"type": "json_object"}
+
+
+@pytest.mark.parametrize(
+    "model", ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.8-27b"]
+)
+def test_strict_schema_for_supported_models(model):
+    """Groq rejects strict schemas on models that do not support them."""
+    assert groq.response_format(model)["json_schema"]["strict"] is True
