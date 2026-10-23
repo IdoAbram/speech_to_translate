@@ -57,15 +57,10 @@ def test_retries_when_line_count_differs(urlopen):
 
 @pytest.mark.parametrize(
     ("status", "message"),
-    [
-        (429, "free limit"),
-        (401, "groq_key.txt"),
-        (404, "not available"),
-        (400, "another"),
-    ],
+    [(401, "groq_key.txt"), (404, "not available"), (400, "another")],
 )
 def test_http_errors_are_explained(urlopen, monkeypatch, status, message):
-    """Turn quota, key, and model errors into actionable messages."""
+    """Turn key and model errors into actionable messages."""
     monkeypatch.setattr(groq, "KEY_FILE", "groq_key.txt")
     urlopen.side_effect = urllib.error.HTTPError("u", status, "", {}, None)
     with pytest.raises(config.AppError, match=message):
@@ -80,6 +75,55 @@ def test_broken_json_is_retried(urlopen):
     urlopen.side_effect = [broken, urlopen.return_value]
     result = groq.translate_lyrics(SONG, "pl", "en", "k", config.Operation())
     assert result.split("\n") == ["a", "b", "", "c", ""]
+
+
+def limited(seconds):
+    """Build Groq's 429 answer with its suggested pause."""
+    return urllib.error.HTTPError(
+        "u", 429, "", {"retry-after": str(seconds)}, None
+    )
+
+
+def test_rate_limit_is_waited_out(urlopen, monkeypatch):
+    """Pause for the free plan's reset instead of failing the song."""
+    sleeps, updates = [], []
+    monkeypatch.setattr(groq.time, "sleep", sleeps.append)
+    clock = iter(range(0, 100))
+    monkeypatch.setattr(groq.time, "monotonic", lambda: next(clock))
+    answer(urlopen, reply(["a", "b", "c"]))
+    urlopen.side_effect = [limited(3), urlopen.return_value]
+    operation = config.Operation(lambda message, _: updates.append(message))
+    result = groq.translate_lyrics(SONG, "pl", "en", "k", operation)
+    assert result.split("\n") == ["a", "b", "", "c", ""]
+    assert sleeps and any("waiting" in message for message in updates)
+
+
+def test_daily_limit_fails_fast(urlopen):
+    """A pause longer than a minute means the daily cap; do not hang."""
+    urlopen.side_effect = limited(3600)
+    with pytest.raises(config.AppError, match="daily limit"):
+        groq.translate_lyrics(SONG, "pl", "en", "k", config.Operation())
+
+
+def echo_lines(request, timeout):
+    """Answer each request by upper-casing exactly the lines it sent."""
+    prompt = json.loads(request.data)["messages"][0]["content"]
+    lines = json.loads(prompt[prompt.index("\n\n[") + 2 :])
+    reply_body = reply([line.upper() for line in lines])
+    return mock.MagicMock(__enter__=mock.Mock(return_value=reply_body))
+
+
+def test_long_song_is_sent_in_parts(urlopen):
+    """Forty lines go out as 15 + 15 + 10 and come back in order."""
+    urlopen.side_effect = echo_lines
+    song = "\n".join(f"wers {index}" for index in range(40))
+    result = groq.translate_lyrics(song, "pl", "he", "k", config.Operation())
+    assert result == song.upper()
+    sizes = [
+        len(json.loads(call.args[0].data)["messages"][0]["content"])
+        for call in urlopen.call_args_list
+    ]
+    assert len(sizes) == 3
 
 
 def test_offline_computer_gets_clear_error(urlopen):

@@ -1,13 +1,15 @@
 """Online lyric translation with the free Groq API.
 
-The whole song is sent in one request so the model sees full context, such
-as slang that only makes sense across lines. A strict JSON schema makes the
-model answer with a list of lines, and the app checks that it returned one
-translation per non-empty source line, which keeps subtitles aligned.
+The song is sent in parts of a few verses, so the model sees enough context
+for slang while each answer stays short enough to come back complete. A JSON
+answer holds one translation per non-empty source line; the app checks the
+count, which keeps subtitles aligned. Free-plan rate limits are waited out.
 """
 
+import itertools
 import json
 import os
+import time
 import urllib.error
 import urllib.request
 
@@ -18,6 +20,10 @@ DEFAULT_MODEL = "openai/gpt-oss-120b"
 API_URL = "https://api.groq.com/openai/v1/chat/completions"
 TIMEOUT_SECONDS = 120
 ATTEMPTS = 3
+# Long songs in one request came back with dropped lines or broken JSON.
+PART_LINES = 15
+# Free-plan token limits reset within a minute; longer waits mean a daily cap.
+MAX_WAIT_SECONDS = 60
 # Models that accept strict JSON schemas, per Groq's structured-output docs.
 STRICT_SCHEMA_MODELS = ("openai/gpt-oss", "qwen/qwen3.8", "meta-models/muse")
 SCHEMA = {
@@ -30,6 +36,14 @@ SCHEMA = {
 
 class BadReply(config.AppError):
     """Groq produced a malformed answer that another attempt may fix."""
+
+
+class RateLimited(config.AppError):
+    """The free plan's short-term limit was reached; retry after a pause."""
+
+    def __init__(self, message: str, seconds: float):
+        super().__init__(message)
+        self.seconds = seconds
 
 
 def api_key(root=config.ROOT) -> str:
@@ -63,26 +77,53 @@ def translate_lyrics(text, source, target, key, operation) -> str:
     """
     lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
     content = [line.strip() for line in lines if line.strip()]
-    operation.report("Translating with Groq (online)…")
-    translated = iter(request_lines(content, source, target, key, operation))
+    translated = iter(translate_parts(content, source, target, key, operation))
     return "\n".join(next(translated) if line.strip() else "" for line in lines)
 
 
+def translate_parts(lines, source, target, key, operation) -> list[str]:
+    """Translate a few verses per request and report progress per part."""
+    parts = list(itertools.batched(lines, PART_LINES))
+    translated = []
+    for index, part in enumerate(parts):
+        operation.report(
+            f"Translating with Groq: part {index + 1} of {len(parts)}…",
+            int(100 * index / len(parts)),
+        )
+        translated += request_lines(list(part), source, target, key, operation)
+    return translated
+
+
 def request_lines(lines, source, target, key, operation) -> list[str]:
-    """Ask Groq again after broken JSON or a wrong number of lines."""
+    """Ask Groq again after broken JSON, a wrong count, or a rate limit."""
     model = os.environ.get("GROQ_MODEL", DEFAULT_MODEL)
     body = request_body(build_prompt(lines, source, target), model)
+    failure = "Groq could not return the song line by line. Try again."
     for _ in range(ATTEMPTS):
         operation.check()
         try:
             result = parse_lines(post(body, key))
         except BadReply:
             continue
+        except RateLimited as error:
+            failure = str(error)
+            wait_for_limit(error.seconds, operation)
+            continue
         if len(result) == len(lines):
             return result
-    raise config.AppError(
-        "Groq could not return the song line by line. Try again."
-    )
+    raise config.AppError(failure)
+
+
+def wait_for_limit(seconds: float, operation) -> None:
+    """Pause for the free plan's reset, staying responsive to Cancel."""
+    if seconds > MAX_WAIT_SECONDS:
+        raise config.AppError(
+            "Groq's free daily limit was reached. Try again later."
+        )
+    deadline = time.monotonic() + seconds
+    while (left := deadline - time.monotonic()) > 0:
+        operation.report(f"Groq free limit: waiting {int(left) + 1} s…")
+        time.sleep(min(1.0, left))
 
 
 def build_prompt(lines, source, target) -> str:
@@ -100,12 +141,16 @@ def build_prompt(lines, source, target) -> str:
 
 def request_body(prompt: str, model: str) -> dict:
     """Request a JSON object holding the translated lines."""
-    return {
+    body = {
         "model": model,
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.2,
         "response_format": response_format(model),
     }
+    if model.startswith("openai/gpt-oss"):
+        # Translation needs little reasoning; this saves free-plan tokens.
+        body["reasoning_effort"] = "low"
+    return body
 
 
 def response_format(model: str) -> dict:
@@ -141,14 +186,24 @@ def post(body: dict, key: str) -> dict:
 
 
 def http_error(error: urllib.error.HTTPError) -> config.AppError:
-    """Mark Groq's rejected JSON generations as worth another attempt."""
+    """Mark broken JSON and short rate limits as worth another attempt."""
     try:
         details = error.read().decode("utf-8", "replace")
     except (AttributeError, OSError):
         details = ""
     if error.code == 400 and "json_validate_failed" in details:
         return BadReply("Groq returned an unreadable answer.")
+    if error.code == 429:
+        return RateLimited(http_message(429), retry_after(error.headers))
     return config.AppError(http_message(error.code))
+
+
+def retry_after(headers) -> float:
+    """Read Groq's suggested pause, assuming a short one if it is absent."""
+    try:
+        return float((headers or {}).get("retry-after", 10))
+    except ValueError:
+        return 10.0
 
 
 def http_message(status: int) -> str:
