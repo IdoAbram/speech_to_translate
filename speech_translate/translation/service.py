@@ -18,12 +18,13 @@ def translate(
     models_dir=config.MODELS,
     progress=config.ignore_progress,
     cancel=None,
+    notice=config.ignore_notice,
 ) -> str:
-    """Translate any length of text in bounded, connected passages."""
+    """Translate any length of text, keeping the source line layout."""
     steps = packages.route(source, target)
     if not text.strip():
         raise config.AppError("Transcribe a song or enter some text first.")
-    operation = config.Operation(progress, cancel)
+    operation = config.Operation(progress, cancel, notice)
     operation.check()
     if steps:
         text = choose_translator(text, source, target, models_dir, operation)
@@ -32,11 +33,21 @@ def translate(
 
 
 def choose_translator(text, source, target, models_dir, operation) -> str:
-    """Prefer Groq when a key is configured, otherwise stay offline."""
+    """Prefer Groq when a key is configured, falling back to offline."""
     key = groq.api_key()
-    if key:
+    if not key:
+        return translate_document(text, source, target, models_dir, operation)
+    try:
         return groq.translate_lyrics(text, source, target, key, operation)
-    return translate_document(text, source, target, models_dir, operation)
+    except config.Cancelled:
+        raise
+    except (config.AppError, OSError, ValueError) as error:
+        operation.notice(
+            f"Groq was unavailable ({error}) Used the offline model, "
+            "which translates more literally."
+        )
+        operation.report("Groq unavailable. Using the offline model…")
+        return translate_document(text, source, target, models_dir, operation)
 
 
 def translate_document(text, source, target, models_dir, operation) -> str:

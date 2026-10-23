@@ -62,6 +62,33 @@ def record(calls, args):
     return f"{args[2]} result"
 
 
+def test_fallback_result_is_shown_but_not_remembered(
+    desktop, song, recognized, monkeypatch, qapp
+):
+    """Explain an offline fallback and try Groq again next time."""
+    calls = []
+    monkeypatch.setattr(translation, "translate", fallback(calls))
+    desktop.accept_file(str(song))
+    helpers.wait_runner(desktop.runner, qapp)
+    for _ in range(2):
+        desktop.translate_text()
+        helpers.wait_runner(desktop.runner, qapp)
+    assert len(calls) == 2
+    assert desktop.view.translated.text() == "offline"
+    assert "offline model" in desktop.view.status.text()
+
+
+def fallback(calls):
+    """Simulate a translation that had to fall back to the offline model."""
+
+    def translate(*args, notice, **kwargs):
+        calls.append(args)
+        notice("Groq was unavailable. Used the offline model.")
+        return "offline"
+
+    return translate
+
+
 def test_translation_failure_keeps_transcript(
     desktop, song, recognized, monkeypatch, qapp
 ):

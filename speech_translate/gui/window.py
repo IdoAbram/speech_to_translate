@@ -25,6 +25,7 @@ class Window(QtWidgets.QMainWindow):
         self.close_pending = False
         self.translations = cache.TranslationCache()
         self.pending_translation = None
+        self.result_notice = ""
         self.setCentralWidget(self.view)
         self._connect_controls()
         self._connect_jobs()
@@ -58,6 +59,7 @@ class Window(QtWidgets.QMainWindow):
     def _connect_jobs(self) -> None:
         """Keep updates and results on the GUI thread."""
         self.runner.progress.connect(self.view.show_progress)
+        self.runner.notice.connect(self.keep_notice)
         self.runner.result.connect(self.show_result)
         self.runner.failed.connect(self.view.status.setText)
         self.runner.busy_changed.connect(self.busy_changed)
@@ -89,6 +91,7 @@ class Window(QtWidgets.QMainWindow):
     def _start(self, request: worker.Request) -> None:
         """Capture the current action and start a single background job."""
         self.action = request.action
+        self.result_notice = ""
         self.view.show_progress("Loading…", -1)
         self.runner.start(request)
 
@@ -115,10 +118,21 @@ class Window(QtWidgets.QMainWindow):
         if self.action == "speech":
             self.show_transcript(result)
         else:
-            if self.pending_translation is not None:
-                self.translations.put(*self.pending_translation, result)
-            self.show_translation(result)
-            self.view.status.setText(self._translation_notice())
+            self.finish_translation(result)
+
+    def keep_notice(self, message: str) -> None:
+        """Remember how the running job produced its result."""
+        self.result_notice = message
+
+    def finish_translation(self, result: str) -> None:
+        """Show a result; never remember a lower-quality fallback."""
+        self.show_translation(result)
+        if self.result_notice:
+            self.view.status.setText(self.result_notice)
+            return
+        if self.pending_translation is not None:
+            self.translations.put(*self.pending_translation, result)
+        self.view.status.setText(self._translation_notice())
 
     def show_translation(self, text: str) -> None:
         """Display a translation beside the transcript it came from."""

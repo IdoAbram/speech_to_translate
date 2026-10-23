@@ -173,3 +173,26 @@ def test_service_prefers_groq_when_configured(urlopen, monkeypatch):
 def test_strict_schema_for_supported_models(model):
     """Groq rejects strict schemas on models that do not support them."""
     assert groq.response_format(model)["json_schema"]["strict"] is True
+
+
+def test_falls_back_to_offline_model(urlopen, monkeypatch):
+    """Without internet, translate offline and explain why."""
+    monkeypatch.setenv("GROQ_API_KEY", "k")
+    urlopen.side_effect = urllib.error.URLError("offline")
+    monkeypatch.setattr(service, "translate_document", lambda *a: "offline")
+    notices = []
+    result = service.translate(SONG, "pl", "he", notice=notices.append)
+    assert result == "offline"
+    assert "internet" in notices[0] and "offline model" in notices[0]
+
+
+def test_cancel_never_falls_back(monkeypatch):
+    """Cancelling must stop the job, not start the offline model."""
+    monkeypatch.setenv("GROQ_API_KEY", "k")
+    stop = mock.Mock(side_effect=config.Cancelled("Cancelled."))
+    monkeypatch.setattr(groq, "translate_lyrics", stop)
+    offline = mock.Mock()
+    monkeypatch.setattr(service, "translate_document", offline)
+    with pytest.raises(config.Cancelled):
+        service.translate(SONG, "pl", "he")
+    offline.assert_not_called()

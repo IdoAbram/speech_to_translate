@@ -110,7 +110,11 @@ one translated line, and blank stanza lines are kept.
 The default model is `openai/gpt-oss-120b`. Set the `GROQ_MODEL` environment
 variable to try another Groq model, such as `qwen/qwen3.8-27b`; the models
 your key can use are listed at `https://api.groq.com/openai/v1/models`.
-Malformed answers and wrong line counts are retried automatically. Lyrics are sent to Groq, so this needs
+Malformed answers and wrong line counts are retried automatically.
+The song is sent 15 lines at a time, and short free-plan rate limits are
+waited out. If Groq still fails (no internet, daily limit, retired model),
+the app translates with the offline model instead and says so; that
+fallback result is not remembered, so the next attempt tries Groq again. Lyrics are sent to Groq, so this needs
 internet, and the free plan has request limits. Without a key nothing is sent
 anywhere.
 

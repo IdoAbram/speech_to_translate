@@ -20,14 +20,21 @@ def test_transcription_command(song, tmp_path, monkeypatch):
     assert output.read_text(encoding="utf-8-sig") == "Hello"
 
 
-def test_translation_command(tmp_path, monkeypatch):
+def test_translation_command(tmp_path, monkeypatch, capsys):
     """Read UTF-8 BOM source files and export both script and spacing."""
     source, target = tmp_path / "source.txt", tmp_path / "translated.txt"
     source.write_text("Hello\n\nAgain", encoding="utf-8-sig")
-    monkeypatch.setattr(translation, "translate", lambda text, *args: text)
+    monkeypatch.setattr(translation, "translate", fallback_translation)
     arguments = ["translate", str(source), "--source", "en", "--target", "he"]
     assert cli.main([*arguments, "--output", str(target)]) == 0
     assert target.read_text(encoding="utf-8-sig") == "Hello\n\nAgain"
+    assert "offline model" in capsys.readouterr().err
+
+
+def fallback_translation(text, *args, notice):
+    """Echo the text and report an offline fallback like the service does."""
+    notice("Groq was unavailable. Used the offline model.")
+    return text
 
 
 def test_cli_preserves_existing_files(song):

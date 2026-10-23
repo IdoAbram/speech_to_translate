@@ -9,6 +9,7 @@ class JobRunner(QtCore.QObject):
     """Run one request at a time without blocking the Qt event loop."""
 
     progress = QtCore.Signal(str, int)
+    notice = QtCore.Signal(str)
     result = QtCore.Signal(object)
     failed = QtCore.Signal(str)
     busy_changed = QtCore.Signal(bool)
@@ -39,6 +40,7 @@ class JobRunner(QtCore.QObject):
         """Connect results and keep thread teardown in the GUI thread."""
         self._thread.started.connect(self._worker.run)
         self._worker.progress.connect(self.progress)
+        self._worker.notice.connect(self.notice)
         self._worker.result.connect(self.result)
         self._worker.failed.connect(self.failed)
         self._worker.finished.connect(self._thread.quit)

@@ -24,6 +24,7 @@ class Worker(QtCore.QObject):
     """Perform inference off the UI thread and communicate through signals."""
 
     progress = QtCore.Signal(str, int)
+    notice = QtCore.Signal(str)
     result = QtCore.Signal(object)
     failed = QtCore.Signal(str)
     finished = QtCore.Signal()
@@ -58,6 +59,7 @@ class Worker(QtCore.QObject):
                 request.text,
                 request.source,
                 request.target,
+                notice=self.notice.emit,
                 **options,
             )
         raise ValueError(f"Unknown operation: {request.action}")

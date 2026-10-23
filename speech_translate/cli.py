@@ -46,7 +46,14 @@ def execute(args) -> str:
     if args.command == "transcribe":
         return speech.transcribe(args.audio, args.language, args.model).text
     text = args.text.read_text(encoding="utf-8-sig")
-    return translation.translate(text, args.source, args.target)
+    return translation.translate(
+        text, args.source, args.target, notice=print_notice
+    )
+
+
+def print_notice(message: str) -> None:
+    """Show how the result was produced without mixing it into output."""
+    print(message, file=sys.stderr)
 
 
 def main(argv=None) -> int:
