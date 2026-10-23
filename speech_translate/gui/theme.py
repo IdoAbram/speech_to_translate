@@ -3,7 +3,8 @@
 CREAM = "#FAF9F5"
 INK = "#141413"
 MUTED = "#5E5D59"
-LINE = "#E8E6DC"
+LINE = "#DCD8CB"
+BORDER = "#CDC8B9"
 ACCENT = "#B4532D"
 ACCENT_DARK = "#7A3418"
 ACCENT_SOFT = "#F8E9E1"
@@ -41,7 +42,7 @@ QLabel#songCaption {{
     font-size: 20px;
     }}
 QFrame#divider {{
-    background: #F0EEE6;
+    background: {LINE};
     border: 0;
     }}
 QLabel#bigTitle {{
@@ -64,12 +65,12 @@ QLabel#musicIcon {{
     }}
 QFrame#card {{
     background: #FFFFFF;
-    border: 1px solid {LINE};
+    border: 2px solid {LINE};
     border-radius: 20px;
     }}
 QPushButton {{
     background: #FFFFFF;
-    border: 1px solid #DEDBD0;
+    border: 2px solid {BORDER};
     border-radius: 10px;
     padding: 9px 16px;
     min-height: 26px;
@@ -127,23 +128,29 @@ QPushButton#quiet {{
     }}
 QWidget#segment {{
     background: #F0EEE6;
-    border-radius: 12px;
+    border: 2px solid {LINE};
+    border-radius: 13px;
     }}
 QPushButton#segmentButton {{
     background: transparent;
-    border: 0;
+    border: 2px solid transparent;
     border-radius: 9px;
     color: #3D3D3A;
     font-size: 18px;
     padding: 9px 16px;
     }}
 QPushButton#segmentButton:checked {{
-    background: #FFFFFF;
+    background: {ACCENT_SOFT};
+    border: 2px solid {ACCENT};
     color: {ACCENT_DARK};
     font-weight: 700;
     }}
 QPushButton#segmentButton:hover {{
     color: {ACCENT_DARK};
+    border-color: #E2C3B2;
+    }}
+QPushButton#segmentButton:checked:hover {{
+    border-color: {ACCENT};
     }}
 QPushButton#dropArea {{
     background: #FFFFFF;
@@ -162,16 +169,22 @@ QLabel#status {{
     background: #F0EEE6;
     color: #3D3D3A;
     }}
+QLabel#status {{
+    border: 2px solid #E2DED2;
+    }}
 QLabel#status[kind="success"] {{
     background: #E9F2E3;
+    border-color: #BFD7AE;
     color: #2D5016;
     }}
 QLabel#status[kind="warning"] {{
     background: #FBF0D9;
+    border-color: #EBCF95;
     color: #6B4A0E;
     }}
 QLabel#status[kind="error"] {{
     background: #FBE4E1;
+    border-color: #EBB4AC;
     color: #8A1F11;
     }}
 QProgressBar {{
@@ -199,7 +212,7 @@ QLabel#stepLater {{
     }}
 QTextEdit {{
     background: #FFFFFF;
-    border: 1px solid #F0EEE6;
+    border: 2px solid #E6E2D6;
     border-radius: 12px;
     padding: 8px 6px;
     color: {INK};
@@ -207,11 +220,11 @@ QTextEdit {{
     selection-color: {INK};
     }}
 QTextEdit:focus {{
-    border-color: #D9B8A6;
+    border-color: {ACCENT};
     }}
 QLineEdit {{
     background: #FFFFFF;
-    border: 1px solid #DEDBD0;
+    border: 2px solid {BORDER};
     border-radius: 10px;
     padding: 9px 14px;
     min-width: 360px;
