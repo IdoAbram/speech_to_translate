@@ -37,6 +37,9 @@ window. **Exit** closes the app.
 Language settings contains an optional override for incorrect detections.
 Selecting an override transcribes the current recording again. Changing the
 transcript or translation language clears the previous translation.
+Finished translations are remembered while the app is open: translating the
+same transcript into a language used earlier shows the result instantly.
+Editing the transcript translates it again.
 
 The loading display reports elapsed time and **confirmed audio coverage**.
 Model loading and language detection have an indeterminate indicator. During

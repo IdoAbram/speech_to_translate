@@ -35,6 +35,33 @@ def test_drop_transcribe_translate(
     assert not desktop.view.translated.isHidden()
 
 
+def test_switching_back_reuses_translation(
+    desktop, song, recognized, monkeypatch, qapp
+):
+    """Hebrew, then English, then Hebrew again runs the model only twice."""
+    calls = []
+    monkeypatch.setattr(
+        translation, "translate", lambda *a, **k: record(calls, a)
+    )
+    desktop.accept_file(str(song))
+    helpers.wait_runner(desktop.runner, qapp)
+    for target in ("he", "en", "he"):
+        desktop.view.target.setCurrentIndex(
+            desktop.view.target.findData(target)
+        )
+        desktop.translate_text()
+        helpers.wait_runner(desktop.runner, qapp)
+    assert [args[2] for args in calls] == ["he", "en"]
+    assert desktop.view.translated.text() == "he result"
+    assert "remembered" in desktop.view.status.text()
+
+
+def record(calls, args):
+    """Log one translation request and answer with its target language."""
+    calls.append(args)
+    return f"{args[2]} result"
+
+
 def test_translation_failure_keeps_transcript(
     desktop, song, recognized, monkeypatch, qapp
 ):
