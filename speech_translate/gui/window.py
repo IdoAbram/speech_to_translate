@@ -5,8 +5,8 @@ import pathlib
 from PySide6 import QtGui, QtWidgets
 
 from speech_translate import config, speech
-from speech_translate.gui import jobs, view, worker
-from speech_translate.translation import cache
+from speech_translate.gui import jobs, key_dialog, view, worker
+from speech_translate.translation import cache, groq
 
 
 class Window(QtWidgets.QMainWindow):
@@ -25,10 +25,12 @@ class Window(QtWidgets.QMainWindow):
         self.close_pending = False
         self.translations = cache.TranslationCache()
         self.pending_translation = None
+        self.result_notice = ""
         self.setCentralWidget(self.view)
         self._connect_controls()
         self._connect_jobs()
         self._connect_window()
+        self.show_online_status()
 
     def _connect_window(self) -> None:
         """Expose fullscreen controls through visible buttons and shortcuts."""
@@ -51,6 +53,7 @@ class Window(QtWidgets.QMainWindow):
         self.view.target.currentIndexChanged.connect(self.clear_translation)
         self.view.original.changed.connect(self.clear_translation)
         self.view.translate_button.clicked.connect(self.translate_text)
+        self.view.online.clicked.connect(self.edit_groq_key)
         self.view.cancel_button.clicked.connect(self.cancel_job)
         self.view.original.notice.connect(self.view.status.setText)
         self.view.translated.notice.connect(self.view.status.setText)
@@ -58,6 +61,7 @@ class Window(QtWidgets.QMainWindow):
     def _connect_jobs(self) -> None:
         """Keep updates and results on the GUI thread."""
         self.runner.progress.connect(self.view.show_progress)
+        self.runner.notice.connect(self.keep_notice)
         self.runner.result.connect(self.show_result)
         self.runner.failed.connect(self.view.status.setText)
         self.runner.busy_changed.connect(self.busy_changed)
@@ -89,6 +93,7 @@ class Window(QtWidgets.QMainWindow):
     def _start(self, request: worker.Request) -> None:
         """Capture the current action and start a single background job."""
         self.action = request.action
+        self.result_notice = ""
         self.view.show_progress("Loading…", -1)
         self.runner.start(request)
 
@@ -115,10 +120,21 @@ class Window(QtWidgets.QMainWindow):
         if self.action == "speech":
             self.show_transcript(result)
         else:
-            if self.pending_translation is not None:
-                self.translations.put(*self.pending_translation, result)
-            self.show_translation(result)
-            self.view.status.setText(self._translation_notice())
+            self.finish_translation(result)
+
+    def keep_notice(self, message: str) -> None:
+        """Remember how the running job produced its result."""
+        self.result_notice = message
+
+    def finish_translation(self, result: str) -> None:
+        """Show a result; never remember a lower-quality fallback."""
+        self.show_translation(result)
+        if self.result_notice:
+            self.view.status.setText(self.result_notice)
+            return
+        if self.pending_translation is not None:
+            self.translations.put(*self.pending_translation, result)
+        self.view.status.setText(self._translation_notice())
 
     def show_translation(self, text: str) -> None:
         """Display a translation beside the transcript it came from."""
@@ -146,6 +162,20 @@ class Window(QtWidgets.QMainWindow):
         self.view.status.setText(
             "Transcript ready. Edit any words, then translate."
         )
+
+    def edit_groq_key(self) -> None:
+        """Turn Groq on or off; earlier results may come from another model."""
+        if not key_dialog.KeyDialog(self).exec():
+            return
+        self.translations = cache.TranslationCache()
+        self.clear_translation()
+        self.show_online_status()
+        self.view.status.setText(f"{self.view.online.text()}.")
+
+    def show_online_status(self) -> None:
+        """Show at a glance whether translation will use Groq."""
+        state = "on" if groq.api_key() else "off"
+        self.view.online.setText(f"Online translation: {state}")
 
     def clear_translation(self) -> None:
         """Never show an old result beside edited source text."""

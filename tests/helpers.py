@@ -25,7 +25,7 @@ class CharacterTokenizer:
 
 def make_multilingual(root):
     """Create the complete multilingual runtime asset inventory."""
-    path = root / "translation" / "m2m100"
+    path = root / "translation" / "nllb"
     (path / "model").mkdir(parents=True, exist_ok=True)
     for name in (
         "model/model.bin",

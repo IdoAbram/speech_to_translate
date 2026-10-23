@@ -29,7 +29,7 @@ def test_source_download_pins_revision(tmp_path, monkeypatch):
 def test_multilingual_install_and_reuse(tmp_path, monkeypatch):
     """Reuse valid conversion output and record its exact source revision."""
     monkeypatch.setattr(config, "ROOT", tmp_path)
-    source = tmp_path / ".downloads" / "m2m100-source"
+    source = tmp_path / ".downloads" / "nllb-source"
     source.mkdir(parents=True)
     for name in ("sentencepiece.bpe.model", "README.md"):
         (source / name).write_bytes(b"fixture")
@@ -80,4 +80,4 @@ def test_build_contains_models_and_python(tmp_path, monkeypatch, single_file):
         assert "--onefile" in args and "--add-data" in args
         assert output.suffix == ".exe"
     else:
-        assert (output / "models/translation/m2m100/model/model.bin").is_file()
+        assert (output / "models/translation/nllb/model/model.bin").is_file()

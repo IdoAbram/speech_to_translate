@@ -8,9 +8,11 @@ Models:
 
 - Whisper small, OpenAI/SYSTRAN: https://github.com/openai/whisper and
   https://huggingface.co/Systran/faster-whisper-small
-- M2M100 418M, Meta/Facebook AI: https://huggingface.co/facebook/m2m100_418M
-  (model card declares MIT). This app converts its official weights to INT8.
-  Source code and license: https://github.com/facebookresearch/fairseq
+- NLLB-200 distilled 600M, Meta AI:
+  https://huggingface.co/facebook/nllb-200-distilled-600M
+  (model card declares CC-BY-NC-4.0: attribution required, no commercial
+  use). This app converts its official weights to INT8 without other
+  changes. See `licenses/NLLB-200-CC-BY-NC-4.0.txt`.
 
 Runtime projects:
 

@@ -1,0 +1,11 @@
+NLLB-200 distilled 600M
+Copyright (c) Meta Platforms, Inc. and affiliates.
+Source: https://huggingface.co/facebook/nllb-200-distilled-600M
+
+The model weights are licensed under the Creative Commons
+Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0):
+https://creativecommons.org/licenses/by-nc/4.0/legalcode
+
+This application converts the official weights to CTranslate2 INT8 format
+for faster CPU inference. No other changes are made. The weights may not be
+used for commercial purposes.

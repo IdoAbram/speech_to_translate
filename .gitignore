@@ -225,3 +225,6 @@ models/
 .uv-cache/
 .model-venv/
 reports/
+
+# Personal Groq API key; never commit it
+groq_key*.txt

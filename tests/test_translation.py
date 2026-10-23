@@ -128,3 +128,11 @@ def test_translation_engine_cleanup(tmp_path, monkeypatch):
     with pytest.raises(ValueError), engine.open_engine(tmp_path):
         raise ValueError("failed")
     model.unload_model.assert_called_once()
+
+
+def test_offline_language_markers():
+    """NLLB-200 uses FLORES-200 language codes, not ISO codes."""
+    markers = [packages.language_token(code) for code in ("en", "he", "pl")]
+    assert markers == ["eng_Latn", "heb_Hebr", "pol_Latn"]
+    with pytest.raises(config.AppError):
+        packages.language_token("de")

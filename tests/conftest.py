@@ -7,6 +7,7 @@ import pytest
 from PySide6 import QtCore
 
 from speech_translate.gui import window
+from speech_translate.translation import groq
 from tests import helpers
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -22,6 +23,15 @@ def offline_network(monkeypatch):
     """Prevent a missing model from silently becoming an online download."""
     monkeypatch.setattr(socket.socket, "connect", deny_network)
     monkeypatch.setattr(socket, "create_connection", deny_network)
+
+
+@pytest.fixture(autouse=True)
+def no_groq_key(monkeypatch, tmp_path):
+    """Use the offline model even if a developer has a real Groq key."""
+    monkeypatch.setenv("APPDATA", str(tmp_path / "appdata"))
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    monkeypatch.delenv("GROQ_MODEL", raising=False)
+    monkeypatch.setattr(groq, "KEY_FILE", "no-key-during-tests.txt")
 
 
 @pytest.fixture

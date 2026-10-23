@@ -3,7 +3,7 @@
 STYLESHEET = """
 QLabel#hero { font-size: 36px; font-weight: 600; }
 QWidget#textPanel QTextEdit { font-size: 18px; }
-QMainWindow, QWidget#workspace {
+QMainWindow, QWidget#workspace, QDialog {
     background: #101827;
     color: #edf3fc;
     }
@@ -69,6 +69,13 @@ QPushButton#dropArea:hover {
     background: #20394a;
     border-color: #77ddc6;
     }
+QLineEdit {
+    background: #1b2a40;
+    border: 1px solid #3c506a;
+    border-radius: 9px;
+    padding: 9px 14px;
+    min-width: 360px;
+}
 QComboBox {
     background: #1b2a40;
     border: 1px solid #3c506a;

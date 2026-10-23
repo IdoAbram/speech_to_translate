@@ -33,6 +33,16 @@ def ignore_progress(message: str, percent: int) -> None:
     """Accept progress updates when no listener was supplied."""
 
 
+def ignore_notice(message: str) -> None:
+    """Accept result notices when no listener was supplied."""
+
+
+def settings_dir() -> pathlib.Path:
+    """Per-user settings that survive replacing or moving the executable."""
+    base = os.environ.get("APPDATA") or str(pathlib.Path.home())
+    return pathlib.Path(base) / "SongWords"
+
+
 def validate_language(code: str) -> None:
     """Raise AppError for a language outside the supported set."""
     if code not in LANGUAGES:
@@ -48,10 +58,15 @@ def offline_mode() -> None:
 
 @dataclasses.dataclass
 class Operation:
-    """Progress callback and cooperative cancellation for one operation."""
+    """Progress, cooperative cancellation, and notices for one operation.
+
+    A notice describes how the result was produced, such as a fallback to
+    the offline model, and stays visible after the operation finishes.
+    """
 
     progress: Progress = ignore_progress
     cancel: threading.Event | None = None
+    notice: Callable[[str], None] = ignore_notice
 
     def check(self) -> None:
         """Raise Cancelled if cancellation was requested."""
