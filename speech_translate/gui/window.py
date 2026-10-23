@@ -5,8 +5,8 @@ import pathlib
 from PySide6 import QtGui, QtWidgets
 
 from speech_translate import config, speech
-from speech_translate.gui import jobs, view, worker
-from speech_translate.translation import cache
+from speech_translate.gui import jobs, key_dialog, view, worker
+from speech_translate.translation import cache, groq
 
 
 class Window(QtWidgets.QMainWindow):
@@ -30,6 +30,7 @@ class Window(QtWidgets.QMainWindow):
         self._connect_controls()
         self._connect_jobs()
         self._connect_window()
+        self.show_online_status()
 
     def _connect_window(self) -> None:
         """Expose fullscreen controls through visible buttons and shortcuts."""
@@ -52,6 +53,7 @@ class Window(QtWidgets.QMainWindow):
         self.view.target.currentIndexChanged.connect(self.clear_translation)
         self.view.original.changed.connect(self.clear_translation)
         self.view.translate_button.clicked.connect(self.translate_text)
+        self.view.online.clicked.connect(self.edit_groq_key)
         self.view.cancel_button.clicked.connect(self.cancel_job)
         self.view.original.notice.connect(self.view.status.setText)
         self.view.translated.notice.connect(self.view.status.setText)
@@ -160,6 +162,20 @@ class Window(QtWidgets.QMainWindow):
         self.view.status.setText(
             "Transcript ready. Edit any words, then translate."
         )
+
+    def edit_groq_key(self) -> None:
+        """Turn Groq on or off; earlier results may come from another model."""
+        if not key_dialog.KeyDialog(self).exec():
+            return
+        self.translations = cache.TranslationCache()
+        self.clear_translation()
+        self.show_online_status()
+        self.view.status.setText(f"{self.view.online.text()}.")
+
+    def show_online_status(self) -> None:
+        """Show at a glance whether translation will use Groq."""
+        state = "on" if groq.api_key() else "off"
+        self.view.online.setText(f"Online translation: {state}")
 
     def clear_translation(self) -> None:
         """Never show an old result beside edited source text."""

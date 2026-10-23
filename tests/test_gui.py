@@ -4,7 +4,8 @@ import pytest
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from speech_translate import config, speech, translation
-from speech_translate.gui import drop_area, worker
+from speech_translate.gui import drop_area, key_dialog, worker
+from speech_translate.translation import groq
 from tests import helpers
 
 
@@ -273,3 +274,44 @@ def test_unexpected_worker_error(qapp, monkeypatch):
 def raise_unexpected():
     """Represent a native library integration error."""
     raise TypeError("Unexpected library failure")
+
+
+def test_online_translation_button(desktop, monkeypatch):
+    """Paste a key in the dialog, then turn online translation off again."""
+    assert desktop.view.online.text() == "Online translation: off"
+    desktop.translations.put("a", "pl", "he", "offline result")
+    monkeypatch.setattr(key_dialog.KeyDialog, "exec", paste("gsk_test"))
+    desktop.edit_groq_key()
+    assert desktop.view.online.text() == "Online translation: on"
+    assert groq.api_key() == "gsk_test"
+    assert desktop.translations.get("a", "pl", "he") is None
+    monkeypatch.setattr(key_dialog.KeyDialog, "exec", turn_off)
+    desktop.edit_groq_key()
+    assert desktop.view.online.text() == "Online translation: off"
+
+
+def paste(key):
+    """Simulate pasting a key and pressing Save in the dialog."""
+
+    def run(dialog):
+        dialog.field.setText(key)
+        dialog.save()
+        return dialog.result()
+
+    return run
+
+
+def turn_off(dialog):
+    """Simulate pressing Turn off in the dialog."""
+    assert dialog.remove_button.isEnabled()
+    dialog.remove()
+    return dialog.result()
+
+
+def test_bad_paste_keeps_dialog_open(qapp):
+    """Explain a broken paste instead of saving it."""
+    dialog = key_dialog.KeyDialog()
+    dialog.field.setText("two keys")
+    dialog.save()
+    assert "without spaces" in dialog.message.text()
+    assert dialog.result() == 0 and not groq.user_key_path().exists()

@@ -96,16 +96,21 @@ depends on the CPU, recording duration, and document length.
 ## Better translation with Groq (free, online)
 
 The offline model translates word by word and misses slang. With a free Groq
-key, the app sends the whole song to a large online model instead, which
-understands context, slang, and idioms. Each source line still gets exactly
+key, the app sends the song, a few verses at a time, to a large online model
+instead, which understands context, slang, and idioms. Each source line still gets exactly
 one translated line, and blank stanza lines are kept.
 
 1. Sign up at [console.groq.com](https://console.groq.com) (no card needed)
-   and create an API key under **API Keys**.
-2. Create a file named **`groq_key.txt`** next to `app.py`, or next to
-   `SongWords.exe`, and paste the key into it. Git ignores this file.
-3. Restart the app. Translation now uses Groq; delete the file to go back to
-   the offline model.
+   and create an API key under **API Keys**. Each person should use their
+   own free key; never commit a key to GitHub.
+2. In the app, click **Online translation**, paste the key, and click
+   **Save**. The button then reads **Online translation: on**.
+3. To stop sending lyrics to Groq, click the button and choose **Turn off**.
+
+The key is saved for the current Windows user in
+`%APPDATA%\SongWords\groq_key.txt`, so it keeps working after
+`SongWords.exe` is replaced with a newer build. Developers can instead set
+`GROQ_API_KEY` or put `groq_key.txt` next to `app.py`; git ignores it.
 
 The default model is `openai/gpt-oss-120b`. Set the `GROQ_MODEL` environment
 variable to try another Groq model, such as `qwen/qwen3.8-27b`; the models
@@ -114,9 +119,9 @@ Malformed answers and wrong line counts are retried automatically.
 The song is sent 15 lines at a time, and short free-plan rate limits are
 waited out. If Groq still fails (no internet, daily limit, retired model),
 the app translates with the offline model instead and says so; that
-fallback result is not remembered, so the next attempt tries Groq again. Lyrics are sent to Groq, so this needs
-internet, and the free plan has request limits. Without a key nothing is sent
-anywhere.
+fallback result is not remembered, so the next attempt tries Groq again.
+Lyrics are sent to Groq, so this needs internet, and the free plan has
+request limits. With online translation off, nothing is sent anywhere.
 
 ## Run and develop from source
 

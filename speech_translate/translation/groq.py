@@ -9,6 +9,7 @@ count, which keeps subtitles aligned. Free-plan rate limits are waited out.
 import itertools
 import json
 import os
+import pathlib
 import time
 import urllib.error
 import urllib.request
@@ -47,19 +48,39 @@ class RateLimited(config.AppError):
 
 
 def api_key(root=config.ROOT) -> str:
-    """Return the Groq key from the environment or the local key file.
+    """Return the Groq key from the environment or a saved key file.
 
     Args:
-        root: Folder that may contain the key file next to the app.
+        root: Folder that may contain a key file next to the app.
 
     Returns:
         The key, or an empty string when Groq is not configured.
     """
     key = os.environ.get("GROQ_API_KEY", "").strip()
-    path = root / KEY_FILE
-    if not key and path.is_file():
-        key = path.read_text(encoding="utf-8-sig").strip()
+    for path in (user_key_path(), root / KEY_FILE):
+        if not key and path.is_file():
+            key = path.read_text(encoding="utf-8-sig").strip()
     return key
+
+
+def user_key_path() -> pathlib.Path:
+    """Locate the key saved from the app for the current Windows user."""
+    return config.settings_dir() / KEY_FILE
+
+
+def save_key(key: str) -> None:
+    """Store a pasted key for this Windows user, replacing an earlier one."""
+    key = key.strip()
+    if not key or any(character.isspace() for character in key):
+        raise config.AppError("Paste the whole Groq key, without spaces.")
+    path = user_key_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(key, encoding="utf-8")
+
+
+def remove_key() -> None:
+    """Forget the key saved from the app; other key sources are kept."""
+    user_key_path().unlink(missing_ok=True)
 
 
 def translate_lyrics(text, source, target, key, operation) -> str:
@@ -211,7 +232,7 @@ def http_message(status: int) -> str:
     if status == 429:
         return "Groq's free limit was reached. Wait a minute and try again."
     if status in (401, 403):
-        return f"Groq rejected the key. Check {KEY_FILE}."
+        return "Groq rejected the key. Check it under Online translation."
     if status == 404:
         return "This Groq model is not available. Check GROQ_MODEL."
     if status == 400:

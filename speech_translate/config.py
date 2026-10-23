@@ -37,6 +37,12 @@ def ignore_notice(message: str) -> None:
     """Accept result notices when no listener was supplied."""
 
 
+def settings_dir() -> pathlib.Path:
+    """Per-user settings that survive replacing or moving the executable."""
+    base = os.environ.get("APPDATA") or str(pathlib.Path.home())
+    return pathlib.Path(base) / "SongWords"
+
+
 def validate_language(code: str) -> None:
     """Raise AppError for a language outside the supported set."""
     if code not in LANGUAGES:

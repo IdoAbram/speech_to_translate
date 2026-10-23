@@ -57,7 +57,7 @@ def test_retries_when_line_count_differs(urlopen):
 
 @pytest.mark.parametrize(
     ("status", "message"),
-    [(401, "groq_key.txt"), (404, "not available"), (400, "another")],
+    [(401, "Online translation"), (404, "not available"), (400, "another")],
 )
 def test_http_errors_are_explained(urlopen, monkeypatch, status, message):
     """Turn key and model errors into actionable messages."""
@@ -196,3 +196,24 @@ def test_cancel_never_falls_back(monkeypatch):
     with pytest.raises(config.Cancelled):
         service.translate(SONG, "pl", "he")
     offline.assert_not_called()
+
+
+def test_key_saved_from_the_app(tmp_path, monkeypatch):
+    """Save per user so a newer executable still finds the key."""
+    monkeypatch.setattr(groq, "KEY_FILE", "groq_key.txt")
+    groq.save_key("  gsk_saved  ")
+    assert groq.user_key_path().parent.name == "SongWords"
+    assert groq.api_key(tmp_path) == "gsk_saved"
+    (tmp_path / "groq_key.txt").write_text("gsk_folder", encoding="utf-8")
+    assert groq.api_key(tmp_path) == "gsk_saved"
+    groq.remove_key()
+    groq.remove_key()
+    assert groq.api_key(tmp_path) == "gsk_folder"
+
+
+@pytest.mark.parametrize("pasted", ["", "   ", "gsk_a gsk_b"])
+def test_rejects_broken_pastes(pasted):
+    """Refuse empty keys or two keys pasted together."""
+    with pytest.raises(config.AppError, match="without spaces"):
+        groq.save_key(pasted)
+    assert not groq.user_key_path().exists()

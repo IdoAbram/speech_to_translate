@@ -77,6 +77,7 @@ class View(QtWidgets.QWidget):
         """Use automatic detection with an optional language override."""
         row = QtWidgets.QHBoxLayout()
         self.source = language_picker(None)
+        self.online = QtWidgets.QPushButton("Online translation: off")
         settings = QtWidgets.QPushButton("Language settings")
         settings.setCheckable(True)
         settings.toggled.connect(self.source.setVisible)
@@ -84,6 +85,7 @@ class View(QtWidgets.QWidget):
         self.detected = QtWidgets.QLabel("English · Hebrew · Polish")
         row.addWidget(self.detected)
         row.addStretch()
+        row.addWidget(self.online)
         row.addWidget(settings)
         row.addWidget(self.source)
         self.layout_box.addLayout(row)
@@ -134,6 +136,7 @@ class View(QtWidgets.QWidget):
             self.source,
             self.target,
             self.drop,
+            self.online,
             self.translate_button,
         ):
             widget.setEnabled(not busy)

@@ -26,8 +26,9 @@ def offline_network(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def no_groq_key(monkeypatch):
+def no_groq_key(monkeypatch, tmp_path):
     """Use the offline model even if a developer has a real Groq key."""
+    monkeypatch.setenv("APPDATA", str(tmp_path / "appdata"))
     monkeypatch.delenv("GROQ_API_KEY", raising=False)
     monkeypatch.delenv("GROQ_MODEL", raising=False)
     monkeypatch.setattr(groq, "KEY_FILE", "no-key-during-tests.txt")
