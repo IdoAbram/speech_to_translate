@@ -127,8 +127,8 @@ class Window(QtWidgets.QMainWindow):
         self.view.panels.setSizes([1, 1])
 
     def _translation_notice(self) -> str:
-        """Explain the intentional reflow of translated lyric lines."""
-        return "Translation ready. Stanzas kept; lines wrap naturally."
+        """Explain that translated lines line up with the transcript."""
+        return "Translation ready. Each line matches its transcript line."
 
     def show_transcript(self, result: speech.Transcript) -> None:
         """Use the detected language for translation and paragraph layout."""

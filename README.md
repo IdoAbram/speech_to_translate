@@ -59,9 +59,10 @@ be interrupted immediately. Cancelling translation keeps the transcript.
   CTranslate2 INT8, about 494 MB including vocabulary and tokenizer.
 - All six translation directions use the same multilingual model directly.
   Hebrew ↔ Polish no longer goes through English.
-- Visual lyric lines are joined within a stanza before translation, giving
-  the model connected phrases instead of isolated lines. Long stanzas are split
-  at sentence or word boundaries into at most 256 content tokens per passage.
+- Each transcript line is translated on its own, so line N of the
+  translation always belongs to line N of the transcript. This keeps
+  subtitles aligned. Very long lines are split at sentence or word boundaries
+  into at most 256 content tokens per passage.
 - There is **no whole-document text-length limit**. A decoder that reaches its
   output budget is retried on smaller pieces. Input is never silently cut to
   fit the model. Repeated passages are reused within a request; every occurrence
@@ -73,9 +74,10 @@ document test; it is not a general test of translation completeness.
 
 The transcript uses word timing for editable line and stanza spacing. Gaps of
 0.8 seconds suggest line breaks; gaps of 2.5 seconds suggest stanza breaks.
-Translated text keeps stanza boundaries and reflows into readable lines; its
-line count can differ from the original because languages have different word
-order. It is a meaning translation, not a rhyming or singable adaptation.
+Translated text keeps the exact line and blank-line layout of the transcript,
+so edit line breaks in the transcript to match the song before translating.
+A phrase split across two lines is translated as two pieces, which can read
+less naturally. It is a meaning translation, not a rhyming adaptation.
 
 Detection can use vocal regions to skip an instrumental introduction. The
 actual transcription retains the full recording without speech-only VAD

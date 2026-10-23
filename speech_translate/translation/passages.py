@@ -1,19 +1,27 @@
-"""Preserve stanza context and recover from decoder output limits."""
+"""Keep source lines aligned and recover from decoder output limits."""
 
 import dataclasses
 import re
-import textwrap
 
 from speech_translate import config
 from speech_translate.translation import chunking, engine
 
 
 def prepare(text: str, tokenizer) -> list:
-    """Join visual lyric lines into connected stanzas before tokenization."""
-    stanzas = re.split(r"\n[ \t]*\n+", text.replace("\r\n", "\n").strip())
+    """Tokenize each source line separately so subtitles stay aligned.
+
+    Args:
+        text: Source text whose lines and blank lines must be preserved.
+        tokenizer: Encodes content tokens for the translation model.
+
+    Returns:
+        One list of bounded token chunks per source line. Blank lines map
+        to an empty list so the output keeps the same line structure.
+    """
+    lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
     return [
-        chunking.split_for_model(" ".join(part.split()), tokenizer)
-        for part in stanzas
+        chunking.split_for_model(" ".join(line.split()), tokenizer)
+        for line in lines
     ]
 
 
@@ -76,12 +84,3 @@ def split_retry(tokens, tokenizer) -> list:
     if not cut or any(not part or len(part) >= len(tokens) for part in pieces):
         raise config.AppError("The model could not finish this passage.")
     return pieces
-
-
-def format_stanza(text: str, lyrics: bool) -> str:
-    """Reflow translated lyrics naturally while keeping stanza boundaries."""
-    if not lyrics:
-        return text
-    return textwrap.fill(
-        text, width=60, break_long_words=False, break_on_hyphens=False
-    )

@@ -31,27 +31,30 @@ def translate_document(text, source, target, models_dir, operation) -> str:
     path = packages.multilingual_path(models_dir)
     operation.report("Loading the translation model…")
     tokenizer = tokenizers.MultilingualTokenizer(path, source)
-    stanzas = passages.prepare(text, tokenizer)
+    lines = passages.prepare(text, tokenizer)
     with engine.open_engine(path) as model:
-        return translate_stanzas(
-            stanzas, model, tokenizer, f"__{target}__", operation, "\n" in text
+        translator = passages.PassageTranslator(
+            model, tokenizer, f"__{target}__", operation
         )
+        return translate_lines(lines, translator, operation)
 
 
-def translate_stanzas(stanzas, model, tokenizer, prefix, operation, lyrics):
-    """Keep repeated choruses and stanza gaps, reporting completed passages."""
-    total = max(sum(len(chunks) for chunks in stanzas), 1)
-    completed, output = 0, []
-    translator = passages.PassageTranslator(model, tokenizer, prefix, operation)
+def translate_lines(lines, translator, operation) -> str:
+    """Translate line by line so line N of the output matches line N.
+
+    Args:
+        lines: Token chunks per source line; empty for blank lines.
+        translator: Decodes chunks and reuses repeated lines.
+        operation: Receives progress and checks for cancellation.
+
+    Returns:
+        The translation with exactly the source's line and stanza layout.
+    """
+    total, completed, output = max(sum(map(len, lines)), 1), 0, []
     operation.report(f"Translating passage 1 of {total}…", 0)
-    for chunks in stanzas:
-        translated = []
-        for tokens in chunks:
-            translated.append(translator.translate(tokens))
-            completed += 1
-            operation.report(
-                f"Translated {completed} of {total} passages…",
-                min(99, int(100 * completed / total)),
-            )
-        output.append(passages.format_stanza(" ".join(translated), lyrics))
-    return "\n\n".join(output)
+    for chunks in lines:
+        output.append(" ".join(map(translator.translate, chunks)))
+        completed += len(chunks)
+        message = f"Translated {completed} of {total} passages…"
+        operation.report(message, min(99, int(100 * completed / total)))
+    return "\n".join(output)

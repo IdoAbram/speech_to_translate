@@ -60,8 +60,9 @@ def test_empty_and_same_language():
         service.translate(" ", "en", "pl")
 
 
-def test_context_preserves_stanzas(tmp_path, monkeypatch):
-    """Keep related lyric lines together and preserve repeated stanzas."""
+@pytest.fixture
+def echo_model(tmp_path, monkeypatch):
+    """Replace the model with one that upper-cases each decoded line."""
     helpers.make_multilingual(tmp_path)
     monkeypatch.setattr(
         tokenizers,
@@ -71,14 +72,24 @@ def test_context_preserves_stanzas(tmp_path, monkeypatch):
     monkeypatch.setattr(
         engine, "open_engine", lambda path: contextlib.nullcontext(None)
     )
-    monkeypatch.setattr(
-        engine,
-        "translate_tokens",
-        lambda model, tok, tokens, prefix: "".join(tokens),
-    )
-    text = "שלום עולם\nשוב\n\nשוב\n"
+    decoded = mock.Mock(side_effect=lambda m, t, tokens, p: "".join(tokens))
+    monkeypatch.setattr(engine, "translate_tokens", decoded)
+    return decoded
+
+
+def test_lines_and_stanzas_stay_aligned(tmp_path, echo_model):
+    """Keep every line, blank stanza gap, and repeated chorus in place."""
+    text = "שלום עולם\nשוב\n\n\nשוב\r\nסוף\n"
     result = service.translate(text, "he", "pl", models_dir=tmp_path)
-    assert result == "שלום עולם שוב\n\nשוב"
+    assert result == "שלום עולם\nשוב\n\n\nשוב\nסוף\n"
+    assert echo_model.call_count == 3
+
+
+def test_line_count_matches_for_subtitles(tmp_path, echo_model):
+    """Line N of a translation is always the translation of line N."""
+    text = "\n".join(f"wers {index}" for index in range(40))
+    result = service.translate(text, "pl", "he", models_dir=tmp_path)
+    assert result.split("\n") == text.split("\n")
 
 
 def test_decode_markers_and_prefix():
