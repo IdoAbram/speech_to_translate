@@ -10,7 +10,37 @@ QMainWindow, QWidget#workspace, QDialog {
 QWidget {
     color: #edf3fc;
     font-family: 'Segoe UI';
-    font-size: 14px;
+    font-size: 17px;
+    }
+QLabel#step {
+    font-size: 22px;
+    font-weight: 600;
+    }
+QLabel#settingsHeading {
+    font-size: 18px;
+    font-weight: 600;
+    }
+QLabel#hint {
+    color: #a5b6d0;
+    font-size: 15px;
+    }
+QLabel#status {
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 18px;
+    background: #1b2a40;
+    }
+QLabel#status[kind="success"] {
+    background: #173d33;
+    color: #9aebd9;
+    }
+QLabel#status[kind="warning"] {
+    background: #4a3a14;
+    color: #ffd98a;
+    }
+QLabel#status[kind="error"] {
+    background: #4a1f24;
+    color: #ffb4b4;
     }
 QLabel {
     background: transparent;
@@ -27,9 +57,19 @@ QPushButton, QToolButton {
     background: #23344d;
     border: 1px solid #344963;
     border-radius: 10px;
-    padding: 10px 18px;
+    padding: 12px 22px;
     color: #edf3fc;
 }
+QPushButton#language {
+    font-size: 22px;
+    min-height: 56px;
+    min-width: 150px;
+    }
+QPushButton#language:checked {
+    background: #77ddc6;
+    color: #102f2a;
+    border: 0;
+    }
 QPushButton:hover, QToolButton:hover {
     background: #304761;
     border-color: #77ddc6;
@@ -62,8 +102,8 @@ QPushButton#dropArea {
     border: 2px dashed #46627d;
     border-radius: 20px;
     color: #dceaf9;
-    font-size: 18px;
-    padding: 24px;
+    font-size: 21px;
+    padding: 20px;
 }
 QPushButton#dropArea:hover {
     background: #20394a;
@@ -98,7 +138,11 @@ QWidget#textPanel {
     }
 QLabel#panelTitle {
     color: #c8d7ed;
+    font-size: 18px;
     font-weight: 600;
+    }
+QDialog {
+    min-width: 520px;
     }
 QTextEdit {
     background: #19253a;

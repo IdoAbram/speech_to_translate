@@ -6,7 +6,7 @@ import threading
 
 from PySide6 import QtCore
 
-from speech_translate import config, speech, translation
+from speech_translate import config, i18n, speech, translation
 
 
 @dataclasses.dataclass(frozen=True)
@@ -44,7 +44,7 @@ class Worker(QtCore.QObject):
             self.failed.emit(str(error))
         except Exception as error:  # A worker must never strand the UI.
             logging.exception("Background inference failed")
-            self.failed.emit(f"Processing failed: {error}")
+            self.failed.emit(i18n.tr("Processing failed: {error}", error=error))
         finally:
             self.finished.emit()
 

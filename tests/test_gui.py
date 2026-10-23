@@ -4,7 +4,12 @@ import pytest
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from speech_translate import config, speech, translation
-from speech_translate.gui import drop_area, key_dialog, worker
+from speech_translate.gui import (
+    drop_area,
+    key_dialog,
+    settings_dialog,
+    worker,
+)
 from speech_translate.translation import groq
 from tests import helpers
 
@@ -29,10 +34,11 @@ def test_drop_transcribe_translate(
     helpers.wait_runner(desktop.runner, qapp)
     assert desktop.view.original.text() == recognized.text
     assert desktop.view.translated.isHidden()
-    desktop.view.translate_button.click()
+    desktop.view.language_buttons["he"].click()
     helpers.wait_runner(desktop.runner, qapp)
     assert desktop.view.original.text() == recognized.text
     assert desktop.view.translated.text() == "שיר שוב"
+    assert desktop.view.status.property("kind") == "success"
     assert not desktop.view.translated.isHidden()
 
 
@@ -47,14 +53,11 @@ def test_switching_back_reuses_translation(
     desktop.accept_file(str(song))
     helpers.wait_runner(desktop.runner, qapp)
     for target in ("he", "en", "he"):
-        desktop.view.target.setCurrentIndex(
-            desktop.view.target.findData(target)
-        )
-        desktop.translate_text()
+        desktop.choose_target(target)
         helpers.wait_runner(desktop.runner, qapp)
     assert [args[2] for args in calls] == ["he", "en"]
     assert desktop.view.translated.text() == "he result"
-    assert "remembered" in desktop.view.status.text()
+    assert desktop.view.language_buttons["he"].isChecked()
 
 
 def record(calls, args):
@@ -101,7 +104,8 @@ def test_translation_failure_keeps_transcript(
     helpers.wait_runner(desktop.runner, qapp)
     assert desktop.view.original.text() == recognized.text
     assert "Missing model" in desktop.view.status.text()
-    assert desktop.view.translate_button.isEnabled()
+    assert desktop.view.status.property("kind") == "error"
+    assert desktop.view.language_buttons["he"].isEnabled()
 
 
 def fail_translation(*args, **kwargs):
@@ -110,12 +114,9 @@ def fail_translation(*args, **kwargs):
 
 
 def test_edits_clear_stale_result(desktop):
-    """Clear old results when source text or target language changes."""
+    """Clear an old result as soon as the words are edited."""
     desktop.view.translated.set_text("Old result", "en")
     desktop.view.original.set_text("Changed source", "en")
-    assert desktop.view.translated.text() == ""
-    desktop.view.translated.set_text("Another result", "en")
-    desktop.view.target.setCurrentIndex(2)
     assert desktop.view.translated.text() == ""
 
 
@@ -208,8 +209,8 @@ def test_file_picker_and_language_retry(
     )
     desktop.view.drop.choose_file()
     helpers.wait_runner(desktop.runner, qapp)
-    desktop.view.source.setCurrentIndex(desktop.view.source.findData("he"))
-    assert desktop.runner.busy
+    desktop.apply_song_language("he")
+    assert desktop.runner.busy and desktop.source_override == "he"
     helpers.wait_runner(desktop.runner, qapp)
     assert desktop.view.original.language == recognized.language
 
@@ -246,7 +247,7 @@ def test_invalid_input_and_empty_transcript(desktop):
     desktop.accept_file("song.wav")
     assert "MP3" in desktop.view.status.text()
     desktop.translate_text()
-    assert "no transcript" in desktop.view.status.text()
+    assert "no words" in desktop.view.status.text()
     assert not desktop.runner.busy
 
 
@@ -277,17 +278,19 @@ def raise_unexpected():
 
 
 def test_online_translation_button(desktop, monkeypatch):
-    """Paste a key in the dialog, then turn online translation off again."""
-    assert desktop.view.online.text() == "Online translation: off"
+    """Paste a key from Settings, then turn online translation off again."""
+    settings = settings_dialog.SettingsDialog(None, False, desktop)
+    assert "Off" in settings.online_state.text()
     desktop.translations.put("a", "pl", "he", "offline result")
     monkeypatch.setattr(key_dialog.KeyDialog, "exec", paste("gsk_test"))
-    desktop.edit_groq_key()
-    assert desktop.view.online.text() == "Online translation: on"
+    desktop.edit_groq_key(settings)
+    assert "On" in settings.online_state.text()
     assert groq.api_key() == "gsk_test"
     assert desktop.translations.get("a", "pl", "he") is None
     monkeypatch.setattr(key_dialog.KeyDialog, "exec", turn_off)
-    desktop.edit_groq_key()
-    assert desktop.view.online.text() == "Online translation: off"
+    desktop.edit_groq_key(settings)
+    assert "Off" in settings.online_state.text()
+    assert "off" in desktop.view.status.text()
 
 
 def paste(key):
@@ -315,3 +318,23 @@ def test_bad_paste_keeps_dialog_open(qapp):
     dialog.save()
     assert "without spaces" in dialog.message.text()
     assert dialog.result() == 0 and not groq.user_key_path().exists()
+
+
+def test_settings_correct_the_song_language(
+    desktop, song, recognized, monkeypatch, qapp
+):
+    """Choosing the song's language in Settings reads the song again."""
+    desktop.accept_file(str(song))
+    helpers.wait_runner(desktop.runner, qapp)
+    monkeypatch.setattr(settings_dialog.SettingsDialog, "exec", choose_polish)
+    desktop.open_settings()
+    assert desktop.source_override == "pl" and desktop.runner.busy
+    helpers.wait_runner(desktop.runner, qapp)
+    desktop.open_settings()
+    assert not desktop.runner.busy
+
+
+def choose_polish(dialog):
+    """Simulate picking Polish as the song language and closing Settings."""
+    dialog.language.setCurrentIndex(dialog.language.findData("pl"))
+    return 1

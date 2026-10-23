@@ -4,7 +4,10 @@ import time
 
 from PySide6 import QtCore, QtWidgets
 
+from speech_translate import i18n
 from speech_translate.speech.progress import timestamp
+
+KINDS = ("info", "success", "warning", "error")
 
 
 class Activity(QtWidgets.QWidget):
@@ -27,14 +30,13 @@ class Activity(QtWidgets.QWidget):
         """Keep status messages readable even after an operation finishes."""
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        self.status = QtWidgets.QLabel(
-            "Drop an MP3 to get started. Language is detected automatically."
-        )
+        self.status = QtWidgets.QLabel(i18n.tr("Choose a song to begin."))
+        self.status.setObjectName("status")
         self.status.setTextFormat(QtCore.Qt.TextFormat.PlainText)
         self.status.setWordWrap(True)
         self.elapsed = QtWidgets.QLabel()
         self.elapsed.setObjectName("elapsed")
-        self.cancel = QtWidgets.QPushButton("Cancel")
+        self.cancel = QtWidgets.QPushButton(i18n.tr("Cancel"))
         self.bar = QtWidgets.QProgressBar()
         self.bar.setTextVisible(False)
         row = QtWidgets.QHBoxLayout()
@@ -63,12 +65,19 @@ class Activity(QtWidgets.QWidget):
     def tick(self) -> None:
         """Confirm that work is ongoing even during a long decoder pass."""
         elapsed = timestamp(time.monotonic() - self.started)
-        coverage = f" · {self.highwater}%" if self.bar.maximum() else ""
-        self.elapsed.setText(f"Working{coverage} · {elapsed} elapsed")
+        if self.bar.maximum():
+            text = i18n.tr(
+                "Working · {percent}% · {elapsed}",
+                percent=self.highwater,
+                elapsed=elapsed,
+            )
+        else:
+            text = i18n.tr("Working · {elapsed}", elapsed=elapsed)
+        self.elapsed.setText(text)
 
     def report(self, message: str, percent: int) -> None:
         """Animate only toward confirmed progress and never move backward."""
-        self.status.setText(message)
+        self.show(message, "info")
         if percent < 0:
             return
         self.highwater = max(self.highwater, min(100, percent))
@@ -79,3 +88,12 @@ class Activity(QtWidgets.QWidget):
         self.animation.setEndValue(self.highwater)
         self.animation.start()
         self.tick()
+
+    def show(self, message: str, kind: str = "info") -> None:
+        """Show a message colored by its kind: info, success, warning, error."""
+        if kind not in KINDS:
+            raise ValueError(f"Unknown status kind: {kind}")
+        self.status.setText(message)
+        self.status.setProperty("kind", kind)
+        self.status.style().unpolish(self.status)
+        self.status.style().polish(self.status)

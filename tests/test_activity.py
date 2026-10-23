@@ -1,6 +1,7 @@
 """Progress presentation, fullscreen controls, and automatic detection."""
 
 import time
+from unittest import mock
 
 from speech_translate import speech, translation
 from speech_translate.gui import activity, theme
@@ -18,7 +19,7 @@ def test_activity_tracks_real_progress_and_elapsed(qtbot, monkeypatch):
     panel.report("Still decoding", 10)
     monkeypatch.setattr(time, "monotonic", lambda: 165)
     panel.tick()
-    assert panel.highwater == 16 and "1:05 elapsed" in panel.elapsed.text()
+    assert panel.highwater == 16 and "1:05" in panel.elapsed.text()
     panel.animation.setCurrentTime(panel.animation.duration())
     assert panel.bar.value() == 16
     panel.set_busy(False)
@@ -42,10 +43,9 @@ def test_fullscreen_toggle_and_theme(desktop, qapp):
     qapp.setStyleSheet(theme.STYLESHEET)
     desktop.toggle_fullscreen()
     assert desktop.isFullScreen()
-    desktop.view.fullscreen_requested.emit()
+    desktop.toggle_fullscreen()
     assert desktop.isMaximized() and not desktop.isFullScreen()
-    assert desktop.view.source.currentData() is None
-    assert desktop.view.source.isHidden()
+    assert desktop.source_override is None
 
 
 def test_detected_language_is_used_for_translation(
@@ -55,16 +55,15 @@ def test_detected_language_is_used_for_translation(
     result = speech.Transcript(
         "he", (speech.Segment(0, 2, "שלום עולם"),), 2, 0.6
     )
-    from unittest import mock
-
     translator = mock.Mock(return_value="Hello")
     monkeypatch.setattr(speech, "transcribe", lambda *args, **kw: result)
     monkeypatch.setattr(translation, "translate", translator)
     desktop.accept_file(str(song))
     helpers.wait_runner(desktop.runner, qapp)
     assert desktop.language == "he" and "Hebrew" in desktop.view.detected.text()
-    assert "Check language" in desktop.view.detected.text()
-    assert desktop.view.target.currentData() == "en"
+    assert "check in Settings" in desktop.view.detected.text()
+    assert desktop.view.target() == "en"
+    assert desktop.view.language_buttons["he"].isHidden()
     desktop.translate_text()
     helpers.wait_runner(desktop.runner, qapp)
     assert translator.call_args.args[1:3] == ("he", "en")

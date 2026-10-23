@@ -24,22 +24,33 @@ libraries for replacement and inspection.
 
 ## Use the app
 
-1. Drop one MP3 or click the large file area.
-2. Wait while the app identifies the language and transcribes the audio.
-3. Review or edit the transcript.
-4. Choose the translation language and click **Translate**.
+The desktop app speaks Hebrew and is laid out right to left, with large text
+and buttons. It guides the user through two numbered steps:
 
-Both texts appear side by side, with Copy and Save actions and native Hebrew
-right-to-left layout. The app starts fullscreen. **F11** or the visible
-**Window / Fullscreen** button toggles fullscreen; **Esc** returns to a maximized
-window. **Exit** closes the app.
+1. **Choose a song:** click the large area (or drop an MP3 on it). The app
+   identifies the song's language and writes out its words. Fix any
+   misheard words in the **Song words** panel.
+2. **Translate into:** click a large language button (Hebrew or English;
+   the song's own language is hidden). One click translates.
 
-Language settings contains an optional override for incorrect detections.
-Selecting an override transcribes the current recording again. Changing the
-transcript or translation language clears the previous translation.
-Finished translations are remembered while the app is open: translating the
-same transcript into a language used earlier shows the result instantly.
-Editing the transcript translates it again.
+Both texts appear side by side with **line numbers**: line 12 of the
+translation always belongs to line 12 of the song, which makes subtitles
+easy to match. Each text has Copy and Save buttons. A colored bar shows the
+result: green when ready, amber when the offline model had to be used, red
+for an error.
+
+**Settings** holds what is rarely needed: correcting the song's language
+(the song is read again), turning online translation on or off, and
+switching between a window and full screen. **F11** also toggles full
+screen and **Esc** returns to a maximized window. **Exit** closes the app.
+
+Finished translations are remembered while the app is open: switching back
+to a language used earlier shows the result instantly. Editing the words
+clears the translation so it is never out of date.
+
+Interface text lives in `speech_translate/i18n/`. Messages are written in
+English and looked up in `hebrew.py`; the command line stays English. A test
+fails if any message lacks a Hebrew translation.
 
 The loading display reports elapsed time and **confirmed audio coverage**.
 Model loading and language detection have an indeterminate indicator. During

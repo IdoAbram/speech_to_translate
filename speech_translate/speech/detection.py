@@ -1,20 +1,25 @@
 """Automatic language detection, with an optional user override."""
 
-from speech_translate import config
+from speech_translate import config, i18n
 
 
 def detect(model, samples, language, operation) -> tuple[str, float]:
     """Prefer vocal regions for detection without trimming the transcript."""
     if language:
         return language, 1.0
-    operation.report("Identifying the song language…")
+    operation.report(i18n.tr("Identifying the song language…"))
     code, confidence, _ = sample_language(model, samples)
     if code not in config.LANGUAGES:
         raise config.AppError(
-            f"Detected language '{code}'. Open Language settings to choose "
-            "English, Hebrew, or Polish if this detection is incorrect."
+            i18n.tr(
+                "Detected language '{code}'. Open Settings to choose "
+                "English, Hebrew, or Polish if this detection is "
+                "incorrect.",
+                code=code,
+            )
         )
-    operation.report(f"Detected {config.LANGUAGES[code]}. Transcribing…", 0)
+    name = config.language_name(code)
+    operation.report(i18n.tr("Detected {name}. Transcribing…", name=name), 0)
     return code, confidence
 
 

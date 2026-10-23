@@ -2,7 +2,7 @@
 
 import re
 
-from speech_translate import config
+from speech_translate import config, i18n
 
 TOKEN_LIMIT = 256
 
@@ -23,7 +23,9 @@ def bounded_chunks(text: str, tokenizer, limit: int) -> list:
         return [tokens] if tokens else []
     cut = split_position(text)
     if not cut:
-        raise config.AppError("A text fragment exceeds the model limit.")
+        raise config.AppError(
+            i18n.tr("A text fragment exceeds the model limit.")
+        )
     left = bounded_chunks(text[:cut].strip(), tokenizer, limit)
     return left + bounded_chunks(text[cut:].strip(), tokenizer, limit)
 

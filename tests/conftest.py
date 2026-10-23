@@ -6,6 +6,7 @@ import socket
 import pytest
 from PySide6 import QtCore
 
+from speech_translate import i18n
 from speech_translate.gui import window
 from speech_translate.translation import groq
 from tests import helpers
@@ -23,6 +24,14 @@ def offline_network(monkeypatch):
     """Prevent a missing model from silently becoming an online download."""
     monkeypatch.setattr(socket.socket, "connect", deny_network)
     monkeypatch.setattr(socket, "create_connection", deny_network)
+
+
+@pytest.fixture(autouse=True)
+def english_interface():
+    """Run every test in English, even after one starts the Hebrew app."""
+    i18n.set_language("en")
+    yield
+    i18n.set_language("en")
 
 
 @pytest.fixture(autouse=True)

@@ -1,10 +1,11 @@
-"""Editable text panel with native Hebrew direction, copying, and saving."""
+"""Numbered text panel with native Hebrew direction, copying, and saving."""
 
 import pathlib
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from speech_translate import config
+from speech_translate import config, i18n
+from speech_translate.gui import line_numbers
 
 
 def apply_direction(editor: QtWidgets.QTextEdit, language: str) -> None:
@@ -39,7 +40,7 @@ def paragraph_format(language: str) -> QtGui.QTextBlockFormat:
 
 
 class TextPanel(QtWidgets.QWidget):
-    """One source or translated text, with a small pair of export actions."""
+    """One source or translated text, numbered, with copy and save actions."""
 
     changed = QtCore.Signal()
     notice = QtCore.Signal(str)
@@ -55,12 +56,13 @@ class TextPanel(QtWidgets.QWidget):
         self.editor = QtWidgets.QTextEdit()
         self.editor.setReadOnly(not editable)
         self.editor.setAcceptRichText(False)
-        self.editor.setFont(QtGui.QFont("Segoe UI", 13))
+        self.editor.setFont(QtGui.QFont("Segoe UI", 15))
+        self.numbers = line_numbers.LineNumbers(self.editor)
         self._build_layout(title)
         self.editor.textChanged.connect(self._text_changed)
 
     def _build_layout(self, title: str) -> None:
-        """Arrange the title, editor, and export buttons."""
+        """Arrange the title, export buttons, and the numbered editor."""
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(16, 12, 16, 12)
         buttons = QtWidgets.QHBoxLayout()
@@ -68,14 +70,24 @@ class TextPanel(QtWidgets.QWidget):
         self.heading.setObjectName("panelTitle")
         buttons.addWidget(self.heading, 1)
         for label, action in (
-            ("Copy", self.copy_text),
-            ("Save text…", self.save_text),
+            (i18n.tr("Copy"), self.copy_text),
+            (i18n.tr("Save…"), self.save_text),
         ):
             button = QtWidgets.QPushButton(label)
             button.clicked.connect(action)
             buttons.addWidget(button)
         layout.addLayout(buttons)
-        layout.addWidget(self.editor)
+        layout.addWidget(self._numbered_editor())
+
+    def _numbered_editor(self) -> QtWidgets.QWidget:
+        """Put line numbers on the side where each line starts."""
+        self.text_row = QtWidgets.QWidget()
+        row = QtWidgets.QHBoxLayout(self.text_row)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(0)
+        row.addWidget(self.numbers)
+        row.addWidget(self.editor, 1)
+        return self.text_row
 
     def _text_changed(self) -> None:
         """Maintain paragraph direction and notify the containing window."""
@@ -85,8 +97,13 @@ class TextPanel(QtWidgets.QWidget):
     def set_text(self, text: str, language: str) -> None:
         """Replace the text while preserving logical Unicode order."""
         self.language = language
-        name = config.LANGUAGES.get(language, "")
+        name = config.language_name(language) if language else ""
         self.heading.setText(f"{self.title} · {name}" if name else self.title)
+        self.text_row.setLayoutDirection(
+            QtCore.Qt.LayoutDirection.RightToLeft
+            if language == "he"
+            else QtCore.Qt.LayoutDirection.LeftToRight
+        )
         self.editor.setPlainText(text)
 
     def text(self) -> str:
@@ -100,13 +117,13 @@ class TextPanel(QtWidgets.QWidget):
     def save_text(self) -> None:
         """Export Unicode text or show a recoverable file-system error."""
         if not self.text().strip():
-            self.notice.emit("There is no text to save yet.")
+            self.notice.emit(i18n.tr("There is no text to save yet."))
             return
         path, _ = QtWidgets.QFileDialog.getSaveFileName(
             self,
-            "Save text",
+            i18n.tr("Save text"),
             self.filename,
-            "Text files (*.txt)",
+            i18n.tr("Text files (*.txt)"),
         )
         if path:
             self._write_text(path)
@@ -115,6 +132,7 @@ class TextPanel(QtWidgets.QWidget):
         """Write Windows-friendly UTF-8 without changing lyric spacing."""
         try:
             pathlib.Path(path).write_text(self.text(), encoding="utf-8-sig")
-            self.notice.emit(f"Saved {pathlib.Path(path).name}")
+            name = pathlib.Path(path).name
+            self.notice.emit(i18n.tr("Saved {name}", name=name))
         except OSError as error:
-            self.notice.emit(f"Could not save: {error}")
+            self.notice.emit(i18n.tr("Could not save: {error}", error=error))

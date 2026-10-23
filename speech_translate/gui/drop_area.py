@@ -4,6 +4,8 @@ import pathlib
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from speech_translate import i18n
+
 
 def dropped_mp3(mime: QtCore.QMimeData) -> str:
     """Accept exactly one local MP3 file, rejecting directories and URLs."""
@@ -21,9 +23,9 @@ class DropArea(QtWidgets.QPushButton):
 
     def __init__(self):
         """Create the initial empty drop target."""
-        super().__init__("Drop an MP3 here\nor click to choose a song")
+        super().__init__(i18n.tr("Click here to choose a song (MP3)"))
         self.setAcceptDrops(True)
-        self.setMinimumHeight(100)
+        self.setMinimumHeight(120)
         self.setObjectName("dropArea")
         self.clicked.connect(self.choose_file)
 
@@ -31,9 +33,9 @@ class DropArea(QtWidgets.QPushButton):
         """Open an MP3-only file picker."""
         path, _ = QtWidgets.QFileDialog.getOpenFileName(
             self,
-            "Choose a song",
+            i18n.tr("Choose a song"),
             "",
-            "MP3 audio (*.mp3)",
+            i18n.tr("MP3 songs (*.mp3)"),
         )
         if path:
             self.selected.emit(path)
