@@ -1,83 +1,99 @@
-"""Rarely needed options, kept off the main screen."""
+"""Settings: online translation and window size, out of grandpa's way."""
 
 from PySide6 import QtCore, QtWidgets
 
-from speech_translate import config, i18n
+from speech_translate import i18n, settings
+from speech_translate.gui import widgets
+from speech_translate.translation import groq
 
 
 class SettingsDialog(QtWidgets.QDialog):
-    """Song language override, online translation, and window size."""
+    """Turn better online translation on or off, and switch full screen."""
 
     key_requested = QtCore.Signal()
     fullscreen_requested = QtCore.Signal()
+    online_changed = QtCore.Signal(bool)
 
-    def __init__(self, source: str | None, online: bool, parent=None):
-        """Show the current choices; the window applies them on close."""
+    def __init__(self, parent=None):
+        """Show the current choices; changes apply immediately."""
         super().__init__(parent)
         self.setWindowTitle(i18n.tr("Settings"))
-        layout = QtWidgets.QVBoxLayout(self)
-        layout.setSpacing(12)
-        self._add_language(layout, source)
-        self._add_online(layout)
-        self.show_online(online)
-        fullscreen = QtWidgets.QPushButton(i18n.tr("Window / full screen"))
-        fullscreen.clicked.connect(self.fullscreen_requested)
-        layout.addWidget(fullscreen)
-        close = QtWidgets.QPushButton(i18n.tr("Close"))
-        close.setObjectName("primary")
+        self.setMinimumWidth(600)
+        column = QtWidgets.QVBoxLayout(self)
+        column.setContentsMargins(28, 24, 28, 24)
+        column.setSpacing(16)
+        column.addWidget(widgets.label(i18n.tr("Settings"), "bigTitle"))
+        column.addWidget(self._online_card())
+        column.addWidget(self._display_card())
+        close = widgets.button(i18n.tr("Close"), "primary")
         close.clicked.connect(self.accept)
-        layout.addWidget(close)
+        column.addWidget(close)
+        self.refresh()
 
-    def _add_language(self, layout, source: str | None) -> None:
-        """Let the user correct a wrongly detected song language."""
-        layout.addWidget(self._heading(i18n.tr("Song language")))
-        self.language = QtWidgets.QComboBox()
-        self.language.addItem(i18n.tr("Detect automatically"), None)
-        for code in config.LANGUAGES:
-            self.language.addItem(config.language_name(code), code)
-        self.language.setCurrentIndex(self.language.findData(source))
-        layout.addWidget(self.language)
-        layout.addWidget(
-            self._hint(
-                i18n.tr(
-                    "If the words came out in the wrong language, choose the "
-                    "song's language here. The song is read again."
-                )
-            )
-        )
+    def _online_card(self) -> QtWidgets.QFrame:
+        """The switch, one plain sentence, and the key's state."""
+        frame = widgets.card()
+        column = QtWidgets.QVBoxLayout(frame)
+        column.setContentsMargins(20, 16, 20, 16)
+        column.addLayout(self._switch_row())
+        explanation = widgets.label(i18n.tr(ONLINE_EXPLANATION), "hint")
+        explanation.setWordWrap(True)
+        column.addWidget(explanation)
+        column.addLayout(self._key_row())
+        return frame
 
-    def _add_online(self, layout) -> None:
-        """Show whether lyrics are translated online, and how to change it."""
-        layout.addWidget(self._heading(i18n.tr("Online translation")))
+    def _switch_row(self) -> QtWidgets.QHBoxLayout:
+        """The switch with a plain 'On' or 'Off' beside it."""
         row = QtWidgets.QHBoxLayout()
-        self.online_state = QtWidgets.QLabel()
-        change = QtWidgets.QPushButton(i18n.tr("Change…"))
+        self.online = QtWidgets.QCheckBox(
+            i18n.tr("Better translation over the internet")
+        )
+        self.online.setObjectName("switch")
+        self.online.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
+        self.online.toggled.connect(self.online_changed)
+        self.online_state = widgets.label()
+        row.addWidget(self.online, 1)
+        row.addWidget(self.online_state)
+        return row
+
+    def _key_row(self) -> QtWidgets.QHBoxLayout:
+        """Show whether a key is saved, with a way to change it."""
+        row = QtWidgets.QHBoxLayout()
+        self.key_state = widgets.label("", "muted")
+        change = widgets.button(i18n.tr("Change key…"))
         change.clicked.connect(self.key_requested)
-        row.addWidget(self.online_state, 1)
+        row.addWidget(self.key_state, 1)
         row.addWidget(change)
-        layout.addLayout(row)
+        return row
 
-    def _heading(self, text: str) -> QtWidgets.QLabel:
-        """Label one group of settings."""
-        label = QtWidgets.QLabel(text)
-        label.setObjectName("settingsHeading")
-        return label
+    def _display_card(self) -> QtWidgets.QFrame:
+        """Switch between a window and full screen."""
+        frame = widgets.card()
+        row = QtWidgets.QHBoxLayout(frame)
+        row.setContentsMargins(20, 12, 20, 12)
+        row.addWidget(widgets.label(i18n.tr("Display"), "settingsHeading"), 1)
+        toggle = widgets.button(i18n.tr("Full screen / window"))
+        toggle.clicked.connect(self.fullscreen_requested)
+        row.addWidget(toggle)
+        return frame
 
-    def _hint(self, text: str) -> QtWidgets.QLabel:
-        """Explain a setting in a short, wrapped sentence."""
-        label = QtWidgets.QLabel(text)
-        label.setObjectName("hint")
-        label.setWordWrap(True)
-        return label
-
-    def show_online(self, online: bool) -> None:
-        """Describe the current translation mode in plain words."""
-        self.online_state.setText(
-            i18n.tr("On: better translation over the internet")
-            if online
-            else i18n.tr("Off: translation on this computer only")
+    def refresh(self) -> None:
+        """Show the saved switch position and whether a key exists."""
+        enabled = settings.online_enabled() and bool(groq.api_key())
+        with QtCore.QSignalBlocker(self.online):
+            self.online.setChecked(enabled)
+        self.online_state.setText(i18n.tr("On") if enabled else i18n.tr("Off"))
+        self.online_state.setObjectName("stepDone" if enabled else "muted")
+        self.online_state.style().polish(self.online_state)
+        self.key_state.setText(
+            i18n.tr("Groq key: saved ✓")
+            if groq.api_key()
+            else i18n.tr("No Groq key yet")
         )
 
-    def source(self) -> str | None:
-        """Return the chosen song language, or None to detect it."""
-        return self.language.currentData()
+
+ONLINE_EXPLANATION = (
+    "When the computer is connected to the internet, the translation "
+    "understands slang and expressions much better. Without internet, the "
+    "translation is done on this computer, and that always works."
+)

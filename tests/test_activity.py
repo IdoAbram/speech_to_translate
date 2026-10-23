@@ -1,11 +1,9 @@
-"""Progress presentation, fullscreen controls, and automatic detection."""
+"""The working screen: real progress, elapsed time, and plain steps."""
 
 import time
-from unittest import mock
 
-from speech_translate import speech, translation
+from speech_translate import i18n
 from speech_translate.gui import activity, theme
-from tests import helpers
 
 
 def test_activity_tracks_real_progress_and_elapsed(qtbot, monkeypatch):
@@ -20,6 +18,7 @@ def test_activity_tracks_real_progress_and_elapsed(qtbot, monkeypatch):
     monkeypatch.setattr(time, "monotonic", lambda: 165)
     panel.tick()
     assert panel.highwater == 16 and "1:05" in panel.elapsed.text()
+    assert panel.percent.text() == "16%"
     panel.animation.setCurrentTime(panel.animation.duration())
     assert panel.bar.value() == 16
     panel.set_busy(False)
@@ -38,32 +37,31 @@ def test_new_operation_resets_progress(qtbot):
     panel.set_busy(False)
 
 
+def test_steps_are_ticked_off(qtbot):
+    """Earlier steps get a check mark; the current one is named."""
+    panel = activity.Activity()
+    qtbot.addWidget(panel)
+    panel.set_song("song.mp3")
+    panel.set_stage(1)
+    assert panel.status.text() == "Hearing the words…"
+    assert panel.step_labels[0].text().startswith("✓")
+    assert panel.step_labels[1].objectName() == "stepNow"
+    assert panel.step_labels[2].objectName() == "stepLater"
+
+
 def test_fullscreen_toggle_and_theme(desktop, qapp):
-    """Offer a visible way back to normal windows while using the new theme."""
+    """Offer a visible way back to normal windows while using the theme."""
     qapp.setStyleSheet(theme.STYLESHEET)
-    desktop.toggle_fullscreen()
+    desktop.view.fullscreen_requested.emit()
     assert desktop.isFullScreen()
-    desktop.toggle_fullscreen()
+    desktop.view.fullscreen_requested.emit()
     assert desktop.isMaximized() and not desktop.isFullScreen()
-    assert desktop.source_override is None
 
 
-def test_detected_language_is_used_for_translation(
-    desktop, song, monkeypatch, qapp
-):
-    """Translate Hebrew automatically without asking for a source language."""
-    result = speech.Transcript(
-        "he", (speech.Segment(0, 2, "שלום עולם"),), 2, 0.6
-    )
-    translator = mock.Mock(return_value="Hello")
-    monkeypatch.setattr(speech, "transcribe", lambda *args, **kw: result)
-    monkeypatch.setattr(translation, "translate", translator)
-    desktop.accept_file(str(song))
-    helpers.wait_runner(desktop.runner, qapp)
-    assert desktop.language == "he" and "Hebrew" in desktop.view.detected.text()
-    assert "check in Settings" in desktop.view.detected.text()
-    assert desktop.view.target() == "en"
-    assert desktop.view.language_buttons["he"].isHidden()
-    desktop.translate_text()
-    helpers.wait_runner(desktop.runner, qapp)
-    assert translator.call_args.args[1:3] == ("he", "en")
+def test_hebrew_steps(qtbot):
+    """The working screen speaks Hebrew in the desktop app."""
+    i18n.set_language("he")
+    panel = activity.Activity()
+    qtbot.addWidget(panel)
+    panel.set_stage(2)
+    assert panel.status.text() == "מתרגמים…"

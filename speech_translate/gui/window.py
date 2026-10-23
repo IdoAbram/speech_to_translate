@@ -1,43 +1,81 @@
-"""Connect the choose, transcribe, review, and translate workflow."""
+"""Connect the four screens: choose, pick languages, work, read and copy."""
 
 import pathlib
 
 from PySide6 import QtGui, QtWidgets
 
-from speech_translate import config, i18n, speech
-from speech_translate.gui import jobs, key_dialog, settings_dialog, view, worker
+from speech_translate import config, i18n, settings, speech
+from speech_translate.gui import (
+    drop_area,
+    jobs,
+    key_dialog,
+    settings_dialog,
+    view,
+    worker,
+)
 from speech_translate.translation import cache, groq
+
+SPEECH_SHARE = 70
 
 
 class Window(QtWidgets.QMainWindow):
     """Coordinate user actions while all inference runs in a worker."""
 
     def __init__(self):
-        """Start with no song selected and no loaded models."""
+        """Start on the 'choose a song' screen with no models loaded."""
         super().__init__()
         self.setWindowTitle("SongWords")
-        self.resize(1000, 720)
+        self.resize(1200, 800)
+        self.setAcceptDrops(True)
         self.view = view.View()
         self.runner = jobs.JobRunner(self)
-        self.path = ""
-        self.action = ""
-        self.language = None
-        self.source_override = None
-        self.close_pending = False
         self.translations = cache.TranslationCache()
+        self.close_pending = False
+        self._reset_song("")
+        self.setCentralWidget(self.view)
+        self._connect_top_bar()
+        self._connect_screens()
+        self._connect_jobs()
+
+    def _reset_song(self, path: str) -> None:
+        """Forget everything about the previous song."""
+        self.path = path
+        self.action = ""
+        self.heard_language = None
+        self.next_translation = None
         self.pending_translation = None
         self.result_notice = ""
-        self.setCentralWidget(self.view)
-        self._connect_controls()
-        self._connect_jobs()
-        self._connect_window()
+        self.cancel_requested = False
 
-    def _connect_window(self) -> None:
-        """Offer Settings and Exit buttons, plus full-screen shortcuts."""
+    def _connect_top_bar(self) -> None:
+        """Full screen, Settings, and Exit, plus keyboard shortcuts."""
+        self.view.fullscreen_requested.connect(self.toggle_fullscreen)
         self.view.settings_requested.connect(self.open_settings)
         self.view.close_requested.connect(self.close)
         QtGui.QShortcut("F11", self, activated=self.toggle_fullscreen)
         QtGui.QShortcut("Escape", self, activated=self.showMaximized)
+
+    def _connect_screens(self) -> None:
+        """Connect each screen's buttons to the matching action."""
+        self.view.drop.selected.connect(self.accept_file)
+        self.view.chosen.other_song.connect(self.new_song)
+        self.view.chosen.translate_requested.connect(self.start)
+        self.view.activity.cancel.clicked.connect(self.cancel_job)
+        result = self.view.result
+        result.new_song.connect(self.new_song)
+        result.translate_requested.connect(self.translate_again)
+        result.copy_all.connect(self.copy_all)
+        result.save.connect(self.save_translation)
+        result.table.line_clicked.connect(self.copy_line)
+        result.table.edited.connect(self.words_edited)
+
+    def _connect_jobs(self) -> None:
+        """Keep updates and results on the GUI thread."""
+        self.runner.progress.connect(self.show_progress)
+        self.runner.notice.connect(self.keep_notice)
+        self.runner.result.connect(self.show_result)
+        self.runner.failed.connect(self.job_failed)
+        self.runner.busy_changed.connect(self.busy_changed)
 
     def toggle_fullscreen(self) -> None:
         """Allow normal desktop multitasking without losing the current song."""
@@ -46,183 +84,243 @@ class Window(QtWidgets.QMainWindow):
         else:
             self.showFullScreen()
 
-    def _connect_controls(self) -> None:
-        """Connect only user-facing actions to the controller."""
-        self.view.drop.selected.connect(self.accept_file)
-        self.view.target_chosen.connect(self.choose_target)
-        self.view.original.changed.connect(self.clear_translation)
-        self.view.cancel_button.clicked.connect(self.cancel_job)
-        self.view.original.notice.connect(self.view.show_status)
-        self.view.translated.notice.connect(self.view.show_status)
+    def dragEnterEvent(self, event: QtGui.QDragEnterEvent) -> None:
+        """Accept an MP3 dropped anywhere on the window."""
+        if not self.runner.busy and drop_area.dropped_mp3(event.mimeData()):
+            event.acceptProposedAction()
+        else:
+            event.ignore()
 
-    def _connect_jobs(self) -> None:
-        """Keep updates and results on the GUI thread."""
-        self.runner.progress.connect(self.view.show_progress)
-        self.runner.notice.connect(self.keep_notice)
-        self.runner.result.connect(self.show_result)
-        self.runner.failed.connect(self.show_error)
-        self.runner.busy_changed.connect(self.busy_changed)
-
-    def show_error(self, message: str) -> None:
-        """Show a failure in the red status bar."""
-        self.view.show_status(message, "error")
+    def dropEvent(self, event: QtGui.QDropEvent) -> None:
+        """Choose the dropped song."""
+        path = drop_area.dropped_mp3(event.mimeData())
+        if path and not self.runner.busy:
+            event.acceptProposedAction()
+            self.accept_file(path)
 
     def accept_file(self, path: str) -> None:
-        """Start recognition immediately after a valid MP3 is selected."""
+        """Show the chosen song and ask for its languages."""
         if self.runner.busy:
             return
         if pathlib.Path(path).suffix.lower() != ".mp3":
-            self.show_error(i18n.tr("Please choose an MP3 file."))
+            self.view.show_status(
+                i18n.tr("Please choose an MP3 file."), "error"
+            )
             return
-        self.path = path
-        self.language = None
+        self._reset_song(path)
         name = pathlib.Path(path).name
-        self.view.drop.setText(
-            i18n.tr("{name} · click to choose another song", name=name)
+        for screen in (self.view.chosen, self.view.result, self.view.activity):
+            screen.set_song(name)
+        self.view.status.clear_message()
+        self.view.show_page("chosen")
+
+    def new_song(self) -> None:
+        """Go back to the 'choose a song' screen."""
+        if not self.runner.busy:
+            self._reset_song("")
+            self.view.status.clear_message()
+            self.view.show_page("start")
+
+    def start(self) -> None:
+        """Hear the song in its language, then translate it."""
+        languages = self.view.chosen.languages
+        self._sync_languages(languages.source(), languages.target())
+        self._listen()
+
+    def translate_again(self) -> None:
+        """Translate the shown words, hearing them again in a new language."""
+        languages = self.view.result.languages
+        self._sync_languages(languages.source(), languages.target())
+        if languages.source() != self.heard_language:
+            self._listen()
+        else:
+            self._translate("\n".join(self.view.result.table.source_lines()))
+
+    def _sync_languages(self, source: str, target: str) -> None:
+        """Show the same languages on both screens."""
+        self.view.chosen.languages.set_languages(source, target)
+        self.view.result.languages.set_languages(source, target)
+        self.view.result.table.set_headers(
+            config.language_name(source), config.language_name(target)
         )
-        self.view.drop.setToolTip(path)
-        self.view.original.set_text("", self.source_override)
-        self.view.show_transcript(False)
-        request = worker.Request("speech", self.source_override, path=path)
-        self._start(request)
 
-    def _start(self, request: worker.Request) -> None:
-        """Capture the current action and start a single background job."""
-        self.action = request.action
-        self.result_notice = ""
-        self.view.show_progress(i18n.tr("Loading…"), -1)
-        self.runner.start(request)
+    def _listen(self) -> None:
+        """Start speech recognition, with translation queued after it."""
+        source = self.view.chosen.languages.source()
+        self.next_translation = True
+        self.view.activity.set_stage(0)
+        self._start(worker.Request("speech", source, path=self.path))
 
-    def choose_target(self, code: str) -> None:
-        """Translate into the language whose button was clicked."""
-        if self.runner.busy:
-            return
-        self.view.select_target(code)
-        self.translate_text()
-
-    def translate_text(self) -> None:
-        """Translate the edited words, reusing any earlier result."""
-        if self.runner.busy:
-            return
-        text = self.view.original.text()
-        if not text.strip():
-            self.show_error(i18n.tr("There are no words to translate yet."))
-            return
-        self.clear_translation()
-        key = (text, self.language, self.view.target())
+    def _translate(self, text: str) -> None:
+        """Translate words, showing a remembered result instantly."""
+        languages = self.view.result.languages
+        key = (text, languages.source(), languages.target())
         remembered = self.translations.get(*key)
         if remembered is not None:
-            self.show_translation(remembered)
-            self.view.show_status(self._ready_message(), "success")
+            self._show_translation(remembered, "")
             return
         self.pending_translation = key
+        self.view.activity.set_stage(2)
         self._start(worker.Request("translate", key[1], key[2], text=text))
 
-    def show_result(self, result: speech.Transcript | str) -> None:
-        """Show the song's words first, then both texts after translation."""
+    def _start(self, request: worker.Request) -> None:
+        """Show the working screen and start one background job."""
+        self.action = request.action
+        self.result_notice = ""
+        self.cancel_requested = False
+        self.view.status.clear_message()
+        self.view.show_page("working")
+        self.runner.start(request)
+
+    def show_progress(self, message: str, percent: int) -> None:
+        """Map each job onto one bar: hearing first, translating last."""
         if self.action == "speech":
-            self.show_transcript(result)
+            self.view.activity.set_stage(0 if percent < 0 else 1)
+            overall = percent * SPEECH_SHARE // 100 if percent >= 0 else -1
         else:
-            self.finish_translation(result)
+            self.view.activity.set_stage(2)
+            share = 100 - SPEECH_SHARE
+            overall = SPEECH_SHARE + percent * share // 100
+            overall = overall if percent >= 0 else -1
+        self.view.show_progress(message, overall)
+
+    def show_result(self, result: speech.Transcript | str) -> None:
+        """Show heard words, or a finished translation."""
+        if self.action == "speech":
+            self._words_heard(result)
+        else:
+            self._show_translation(result, self.result_notice)
+
+    def _words_heard(self, transcript: speech.Transcript) -> None:
+        """Show the words and queue their translation."""
+        self.heard_language = transcript.language
+        self.view.result.table.set_lines(transcript.text.split("\n"))
+        if self.next_translation:
+            self.next_translation = transcript.text
+
+    def _show_translation(self, text: str, notice: str) -> None:
+        """Show the translation; never remember a lower-quality fallback."""
+        table = self.view.result.table
+        table.set_lines(table.source_lines(), text.split("\n"))
+        if not notice and self.pending_translation is not None:
+            self.translations.put(*self.pending_translation, text)
+        self.pending_translation = None
+        self.view.show_page("result")
+        message = notice or i18n.tr(
+            "Translation ready. Click a line to copy its translation."
+        )
+        self.view.show_status(message, "warning" if notice else "success")
 
     def keep_notice(self, message: str) -> None:
         """Remember how the running job produced its result."""
         self.result_notice = message
 
-    def finish_translation(self, result: str) -> None:
-        """Show a result; never remember a lower-quality fallback."""
-        self.show_translation(result)
-        if self.result_notice:
-            self.view.show_status(self.result_notice, "warning")
-            return
-        if self.pending_translation is not None:
-            self.translations.put(*self.pending_translation, result)
-        self.view.show_status(self._ready_message(), "success")
-
-    def show_translation(self, text: str) -> None:
-        """Display a translation beside the words it came from."""
-        self.view.translated.set_text(text, self.view.target())
-        self.view.translated.show()
-        self.view.panels.setSizes([1, 1])
-
-    def _ready_message(self) -> str:
-        """Explain that numbered lines match between the two texts."""
-        return i18n.tr(
-            "Translation ready. Line numbers match the song's lines."
-        )
-
-    def show_transcript(self, result: speech.Transcript) -> None:
-        """Show the words and offer the other languages for translation."""
-        self.language = result.language
-        self.view.original.set_text(result.text, result.language)
-        self.view.show_transcript(True)
-        self.view.detected.setText(self._language_message(result))
-        self.view.set_song_language(result.language)
-        self.view.select_target("en" if result.language == "he" else "he")
-        self.view.show_status(
-            i18n.tr("Words ready. Fix any mistakes, then choose a language."),
-            "success",
-        )
-
-    def _language_message(self, result: speech.Transcript) -> str:
-        """Name the song's language, flagging an uncertain detection."""
-        name = config.language_name(result.language)
-        if result.confidence < 0.7:
-            return i18n.tr(
-                "Song language: {name} (check in Settings)", name=name
-            )
-        return i18n.tr("Song language: {name}", name=name)
-
-    def open_settings(self) -> None:
-        """Change the song language or online translation in one place."""
-        dialog = settings_dialog.SettingsDialog(
-            self.source_override, bool(groq.api_key()), self
-        )
-        dialog.key_requested.connect(lambda: self.edit_groq_key(dialog))
-        dialog.fullscreen_requested.connect(self.toggle_fullscreen)
-        dialog.exec()
-        self.apply_song_language(dialog.source())
-
-    def apply_song_language(self, source: str | None) -> None:
-        """Read the song again when its language was corrected."""
-        if source == self.source_override:
-            return
-        self.source_override = source
-        if self.path and not self.runner.busy:
-            self.accept_file(self.path)
-
-    def edit_groq_key(self, settings=None) -> None:
-        """Turn Groq on or off; earlier results may come from another model."""
-        if not key_dialog.KeyDialog(self).exec():
-            return
-        self.translations = cache.TranslationCache()
-        self.clear_translation()
-        online = bool(groq.api_key())
-        if settings is not None:
-            settings.show_online(online)
-        self.view.show_status(
-            i18n.tr("Online translation is on.")
-            if online
-            else i18n.tr("Online translation is off."),
-            "success",
-        )
-
-    def clear_translation(self) -> None:
-        """Never show an old result beside edited words."""
-        self.view.translated.set_text("", self.view.target())
-        self.view.translated.hide()
+    def job_failed(self, message: str) -> None:
+        """Explain a failure and return to the last useful screen."""
+        self.next_translation = None
+        heard = self.view.result.table.rowCount() and self.heard_language
+        self.view.show_page("result" if heard else "chosen")
+        kind = "info" if self.cancel_requested else "error"
+        self.view.show_status(message, kind)
 
     def busy_changed(self, busy: bool) -> None:
-        """Restore controls or finish a deferred close after worker cleanup."""
+        """Start a queued translation, or finish a deferred close."""
         self.view.set_busy(busy)
-        if not busy and self.close_pending:
+        if busy:
+            return
+        if self.close_pending:
             self.close()
+        elif isinstance(self.next_translation, str):
+            text, self.next_translation = self.next_translation, None
+            self._translate(text)
+
+    def copy_line(self, row: int) -> None:
+        """Copy one line's translation, or the song line before translating."""
+        table = self.view.result.table
+        text = table.translated_lines()[row] or table.source_lines()[row]
+        QtWidgets.QApplication.clipboard().setText(text)
+        table.mark_copied(row)
+        number = table.line_number(row)
+        self.view.show_status(
+            i18n.tr(
+                "Line {number} copied. You can paste it in the video editor.",
+                number=number,
+            ),
+            "success",
+        )
+
+    def copy_all(self) -> None:
+        """Copy the whole translation, keeping its lines and verse breaks."""
+        QtWidgets.QApplication.clipboard().setText(self._export_text())
+        self.view.show_status(i18n.tr("All lines copied."), "success")
+
+    def _export_text(self) -> str:
+        """Return the translation if there is one, else the song's words."""
+        table = self.view.result.table
+        translated = table.translated_lines()
+        lines = translated if any(translated) else table.source_lines()
+        return "\n".join(lines)
+
+    def save_translation(self) -> None:
+        """Save the translation as a text file the video editor can read."""
+        path, _ = QtWidgets.QFileDialog.getSaveFileName(
+            self,
+            i18n.tr("Save text"),
+            "translation.txt",
+            i18n.tr("Text files (*.txt)"),
+        )
+        if path:
+            self._write_text(pathlib.Path(path))
+
+    def _write_text(self, path: pathlib.Path) -> None:
+        """Write Windows-friendly UTF-8, reporting any file-system problem."""
+        try:
+            path.write_text(self._export_text(), encoding="utf-8-sig")
+        except OSError as error:
+            message = i18n.tr("Could not save: {error}", error=error)
+            self.view.show_status(message, "error")
+            return
+        self.view.show_status(
+            i18n.tr("Saved {name}", name=path.name), "success"
+        )
+
+    def words_edited(self) -> None:
+        """Clear a translation that no longer matches the corrected words."""
+        self.view.result.table.clear_translation()
+        self.view.show_status(
+            i18n.tr("The words changed. Click Translate to translate again.")
+        )
+
+    def open_settings(self) -> None:
+        """Change online translation or the window size."""
+        dialog = settings_dialog.SettingsDialog(self)
+        dialog.key_requested.connect(lambda: self.edit_groq_key(dialog))
+        dialog.online_changed.connect(lambda on: self.set_online(on, dialog))
+        dialog.fullscreen_requested.connect(self.toggle_fullscreen)
+        dialog.exec()
+
+    def set_online(self, enabled: bool, dialog) -> None:
+        """Switch online translation, asking for a key if none is saved."""
+        settings.set_online_enabled(enabled)
+        self.translations = cache.TranslationCache()
+        if enabled and not groq.api_key():
+            self.edit_groq_key(dialog)
+        if enabled and not groq.api_key():
+            settings.set_online_enabled(False)
+        dialog.refresh()
+
+    def edit_groq_key(self, dialog=None) -> None:
+        """Save or remove the Groq key; earlier results may change."""
+        if key_dialog.KeyDialog(self).exec():
+            self.translations = cache.TranslationCache()
+        if dialog is not None:
+            dialog.refresh()
 
     def cancel_job(self) -> None:
         """Request cancellation after the current inference step completes."""
+        self.cancel_requested = True
         self.runner.cancel()
-        self.view.cancel_button.setEnabled(False)
-        self.view.show_status(i18n.tr("Cancelling after the current step…"))
+        self.view.activity.cancel.setEnabled(False)
 
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:
         """Avoid destroying a running native model thread."""

@@ -5,6 +5,7 @@ import pathlib
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from speech_translate import i18n
+from speech_translate.gui import widgets
 
 
 def dropped_mp3(mime: QtCore.QMimeData) -> str:
@@ -22,12 +23,32 @@ class DropArea(QtWidgets.QPushButton):
     selected = QtCore.Signal(str)
 
     def __init__(self):
-        """Create the initial empty drop target."""
-        super().__init__(i18n.tr("Click here to choose a song (MP3)"))
+        """Create one large card: icon, title, and how to choose a song."""
+        super().__init__()
         self.setAcceptDrops(True)
-        self.setMinimumHeight(120)
         self.setObjectName("dropArea")
+        self.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
+        self.setAccessibleName(i18n.tr("Choose a song"))
+        column = QtWidgets.QVBoxLayout(self)
+        column.setSpacing(14)
+        column.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        for widget in self._contents():
+            widget.setAttribute(
+                QtCore.Qt.WidgetAttribute.WA_TransparentForMouseEvents
+            )
+            column.addWidget(widget, 0, QtCore.Qt.AlignmentFlag.AlignCenter)
         self.clicked.connect(self.choose_file)
+
+    def _contents(self) -> list:
+        """Return the icon and the three lines of text, largest first."""
+        return [
+            widgets.music_icon(96),
+            widgets.label(i18n.tr("Choose a song"), "bigTitle"),
+            widgets.label(
+                i18n.tr("Click here to choose a song file (MP3)"), "hint"
+            ),
+            widgets.label(i18n.tr("or drag the file here"), "caption"),
+        ]
 
     def choose_file(self) -> None:
         """Open an MP3-only file picker."""

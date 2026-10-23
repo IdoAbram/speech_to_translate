@@ -5,67 +5,79 @@ Placeholders in braces must match the English template exactly.
 """
 
 MESSAGES = {
-    # Main screen.
+    # Top bar and screens.
+    "Full screen": "מסך מלא",
     "Settings": "הגדרות",
     "Exit": "יציאה",
-    "Every song has a story.": "לכל שיר יש סיפור.",
-    "Choose a song, check its words, and translate them.": (
-        "בוחרים שיר, בודקים את המילים, ומתרגמים."
-    ),
-    "1. Choose a song": "1. בחירת שיר",
-    "2. Translate into": "2. תרגום לשפה",
-    "Click here to choose a song (MP3)": "לחצו כאן כדי לבחור שיר (MP3)",
     "Choose a song": "בחירת שיר",
+    "Click here to choose a song file (MP3)": (
+        "לחצו כאן כדי לבחור קובץ שיר (MP3)"
+    ),
+    "or drag the file here": "או גררו את הקובץ לכאן",
     "MP3 songs (*.mp3)": "שירים בפורמט MP3 (*.mp3)",
-    "{name} · click to choose another song": (
-        "{name} · לחצו כדי לבחור שיר אחר"
-    ),
-    "Song words": "מילות השיר",
-    "Translation": "תרגום",
-    "Song language: {name}": "שפת השיר: {name}",
-    "Song language: {name} (check in Settings)": (
-        "שפת השיר: {name} (כדאי לבדוק בהגדרות)"
-    ),
-    "Choose a song to begin.": "בחרו שיר כדי להתחיל.",
-    "Loading…": "טוען…",
-    "Cancel": "ביטול",
-    "Cancelling after the current step…": "מבטלים בסוף השלב הנוכחי…",
-    "Working · {elapsed}": "עובדים על זה · {elapsed}",
-    "Working · {percent}% · {elapsed}": "עובדים על זה · {percent}% · {elapsed}",
+    "The chosen song": "השיר שנבחר",
+    "Another song": "שיר אחר",
+    "The song is in": "השיר בשפה",
+    "Translate into": "לתרגם ל־",
+    "Translate": "לתרגם",
+    "+ New song": "+ שיר חדש",
     "Please choose an MP3 file.": "יש לבחור קובץ MP3.",
-    "There are no words to translate yet.": "עדיין אין מילים לתרגום.",
-    "Words ready. Fix any mistakes, then choose a language.": (
-        "המילים מוכנות. תקנו טעויות אם יש, ואז בחרו שפה."
-    ),
-    "Translation ready. Line numbers match the song's lines.": (
-        "התרגום מוכן. מספרי השורות תואמים לשורות השיר."
-    ),
     "Processing failed: {error}": "משהו השתבש: {error}",
-    # Copy and save.
-    "Copy": "העתקה",
+    # Working screen.
+    "Reading the song": "קוראים את השיר",
+    "Hearing the words": "שומעים את המילים",
+    "Translating": "מתרגמים",
+    "Reading the song…": "קוראים את השיר…",
+    "Hearing the words…": "שומעים את המילים…",
+    "Translating…": "מתרגמים…",
+    "You can wait calmly; this takes about a minute.": (
+        "אפשר לחכות בנחת, זה לוקח בערך דקה."
+    ),
+    "{elapsed} so far": "עברו {elapsed}",
+    "Cancel": "ביטול",
+    # Lyrics screen.
+    "Line": "שורה",
+    "Song words · {language}": "מילות השיר · {language}",
+    "Translation · {language}": "תרגום · {language}",
+    "Click a line to copy it. Double-click a word to fix it.": (
+        "לחיצה על שורה מעתיקה אותה. לחיצה כפולה על מילה מאפשרת לתקן אותה."
+    ),
+    "Click to copy": "לחצו להעתקה",
+    "Copied ✓": "הועתק ✓",
+    "Line {number} copied. You can paste it in the video editor.": (
+        "שורה {number} הועתקה. אפשר להדביק אותה בעורך הווידאו."
+    ),
+    "Copy all": "העתקת הכול",
+    "All lines copied.": "כל השורות הועתקו.",
+    "Translation ready. Click a line to copy its translation.": (
+        "התרגום מוכן. לחצו על שורה כדי להעתיק את התרגום שלה."
+    ),
+    "The words changed. Click Translate to translate again.": (
+        'המילים השתנו. לחצו על "לתרגם" כדי לתרגם שוב.'
+    ),
+    # Saving.
     "Save…": "שמירה…",
     "Save text": "שמירת טקסט",
     "Text files (*.txt)": "קובצי טקסט (*.txt)",
-    "There is no text to save yet.": "עדיין אין טקסט לשמירה.",
     "Saved {name}": "נשמר: {name}",
     "Could not save: {error}": "השמירה נכשלה: {error}",
     # Settings and online translation.
-    "Song language": "שפת השיר",
-    "Detect automatically": "זיהוי אוטומטי",
-    "If the words came out in the wrong language, choose the song's "
-    "language here. The song is read again.": (
-        "אם המילים יצאו בשפה הלא נכונה, בחרו כאן את שפת השיר. השיר ייקרא מחדש."
+    "Better translation over the internet": "תרגום משופר באינטרנט",
+    "When the computer is connected to the internet, the translation "
+    "understands slang and expressions much better. Without internet, the "
+    "translation is done on this computer, and that always works.": (
+        "כשהמחשב מחובר לאינטרנט, התרגום מבין סלנג וביטויים הרבה יותר טוב. "
+        "בלי אינטרנט, התרגום נעשה במחשב, וזה עובד תמיד."
     ),
-    "Online translation": "תרגום באינטרנט",
-    "Change…": "שינוי…",
-    "On: better translation over the internet": (
-        "פועל: תרגום טוב יותר דרך האינטרנט"
-    ),
-    "Off: translation on this computer only": "כבוי: תרגום במחשב הזה בלבד",
-    "Window / full screen": "חלון / מסך מלא",
+    "Groq key: saved ✓": "מפתח Groq: שמור ✓",
+    "On": "פועל",
+    "Off": "כבוי",
+    "No Groq key yet": "עדיין אין מפתח Groq",
+    "Change key…": "החלפת מפתח…",
+    "Display": "תצוגה",
+    "Full screen / window": "מסך מלא / חלון",
     "Close": "סגירה",
-    "Online translation is on.": "התרגום באינטרנט פועל.",
-    "Online translation is off.": "התרגום באינטרנט כבוי.",
+    "Online translation": "תרגום באינטרנט",
     "Online translation (Groq) understands slang and idioms much better. "
     "Get a free key (no card needed) at {link} and paste it below. When you "
     "translate, the lyrics are sent to Groq. Without internet, the "

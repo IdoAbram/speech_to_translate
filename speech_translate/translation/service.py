@@ -38,7 +38,7 @@ def translate(
 
 def choose_translator(text, source, target, models_dir, operation) -> str:
     """Prefer Groq when a key is configured, falling back to offline."""
-    key = groq.api_key()
+    key = groq.active_key()
     if not key:
         return translate_document(text, source, target, models_dir, operation)
     try:

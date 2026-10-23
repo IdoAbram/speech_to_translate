@@ -14,7 +14,7 @@ import time
 import urllib.error
 import urllib.request
 
-from speech_translate import config, i18n
+from speech_translate import config, i18n, settings
 
 KEY_FILE = "groq_key.txt"
 DEFAULT_MODEL = "openai/gpt-oss-120b"
@@ -61,6 +61,11 @@ def api_key(root=config.ROOT) -> str:
         if not key and path.is_file():
             key = path.read_text(encoding="utf-8-sig").strip()
     return key
+
+
+def active_key() -> str:
+    """Return the key only while online translation is switched on."""
+    return api_key() if settings.online_enabled() else ""
 
 
 def user_key_path() -> pathlib.Path:

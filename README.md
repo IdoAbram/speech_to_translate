@@ -24,29 +24,34 @@ libraries for replacement and inspection.
 
 ## Use the app
 
-The desktop app speaks Hebrew and is laid out right to left, with large text
-and buttons. It guides the user through two numbered steps:
+The desktop app speaks Hebrew, is laid out right to left, and uses a calm
+light theme (cream background, white cards, one warm accent). It has four
+screens; `docs/SongWords-design-flow.pdf` shows them.
 
-1. **Choose a song:** click the large area (or drop an MP3 on it). The app
-   identifies the song's language and writes out its words. Fix any
-   misheard words in the **Song words** panel.
-2. **Translate into:** click a large language button (Hebrew or English;
-   the song's own language is hidden). One click translates.
+1. **No song yet:** one large card in the middle. Click it to choose an MP3,
+   or drag a file onto it (or anywhere on the window).
+2. **Song chosen:** pick the song's language (Polish by default) and the
+   language to translate into, then click the big **Translate** button. The
+   song is heard in the chosen language, so there is no guessing, and the
+   translation follows automatically.
+3. **Working:** one thick progress bar with a percentage, the elapsed time,
+   and three plain steps (reading the song, hearing the words, translating)
+   that are ticked off. **Cancel** stops after the current step.
+4. **Translated:** each row holds a line number, the song's line, and its
+   translation, so line 12 is always beside line 12. Hovering a row
+   highlights it; **clicking copies that line** for the video editor.
+   Double-click a song line to fix a misheard word; the translation is then
+   cleared until you click **Translate** again. **Copy all** and **Save…**
+   export the whole translation. **+ New song** returns to screen 1.
 
-Both texts appear side by side with **line numbers**: line 12 of the
-translation always belongs to line 12 of the song, which makes subtitles
-easy to match. Each text has Copy and Save buttons. A colored bar shows the
-result: green when ready, amber when the offline model had to be used, red
-for an error.
-
-**Settings** holds what is rarely needed: correcting the song's language
-(the song is read again), turning online translation on or off, and
-switching between a window and full screen. **F11** also toggles full
-screen and **Esc** returns to a maximized window. **Exit** closes the app.
+**Settings** holds what grandpa never needs: the switch for better
+translation over the internet (Groq) with its key, and full screen or
+window. **F11** also toggles full screen and **Esc** returns to a maximized
+window. **Exit** closes the app.
 
 Finished translations are remembered while the app is open: switching back
-to a language used earlier shows the result instantly. Editing the words
-clears the translation so it is never out of date.
+to a language used earlier shows the result instantly. A result produced by
+the offline fallback is shown with an amber note and is not remembered.
 
 Interface text lives in `speech_translate/i18n/`. Messages are written in
 English and looked up in `hebrew.py`; the command line stays English. A test
