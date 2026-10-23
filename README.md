@@ -93,6 +93,25 @@ Only one inference model is resident at a time, with up to four CPU threads.
 An 8 GB RAM computer is the initial target, not a measured minimum. Performance
 depends on the CPU, recording duration, and document length.
 
+## Better translation with Groq (free, online)
+
+The offline model translates word by word and misses slang. With a free Groq
+key, the app sends the whole song to a large online model instead, which
+understands context, slang, and idioms. Each source line still gets exactly
+one translated line, and blank stanza lines are kept.
+
+1. Sign up at [console.groq.com](https://console.groq.com) (no card needed)
+   and create an API key under **API Keys**.
+2. Create a file named **`groq_key.txt`** next to `app.py`, or next to
+   `SongWords.exe`, and paste the key into it. Git ignores this file.
+3. Restart the app. Translation now uses Groq; delete the file to go back to
+   the offline model.
+
+The default model is `openai/gpt-oss-120b`. Set the `GROQ_MODEL` environment
+variable to try another Groq model. Lyrics are sent to Groq, so this needs
+internet, and the free plan has request limits. Without a key nothing is sent
+anywhere.
+
 ## Run and develop from source
 
 Use Python 3.13 x64. From this project folder:

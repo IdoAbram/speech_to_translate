@@ -1,7 +1,13 @@
-"""Contextual offline translation in all six supported language directions."""
+"""Line-aligned translation in all six supported language directions."""
 
 from speech_translate import config
-from speech_translate.translation import engine, packages, passages, tokenizers
+from speech_translate.translation import (
+    engine,
+    groq,
+    packages,
+    passages,
+    tokenizers,
+)
 
 
 def translate(
@@ -20,9 +26,17 @@ def translate(
     operation = config.Operation(progress, cancel)
     operation.check()
     if steps:
-        text = translate_document(text, source, target, models_dir, operation)
+        text = choose_translator(text, source, target, models_dir, operation)
     operation.report("Translation ready.", 100)
     return text
+
+
+def choose_translator(text, source, target, models_dir, operation) -> str:
+    """Prefer Groq when a key is configured, otherwise stay offline."""
+    key = groq.api_key()
+    if key:
+        return groq.translate_lyrics(text, source, target, key, operation)
+    return translate_document(text, source, target, models_dir, operation)
 
 
 def translate_document(text, source, target, models_dir, operation) -> str:
