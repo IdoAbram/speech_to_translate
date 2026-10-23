@@ -73,7 +73,6 @@ class ResultPage(QtWidgets.QWidget):
     copy_source = QtCore.Signal()
     save = QtCore.Signal()
     edited = QtCore.Signal()
-    line_clicked = QtCore.Signal(int)
 
     def __init__(self):
         """Give the lyrics most of the window."""
@@ -120,12 +119,10 @@ class ResultPage(QtWidgets.QWidget):
         row.setSpacing(16)
         self.source = lyrics_box.LyricsBox(
             i18n.tr("You can fix a misheard word here."),
-            False,
             [self._action(i18n.tr("Copy"), self.copy_source)],
         )
         self.translation = lyrics_box.LyricsBox(
-            i18n.tr("Click a line to copy it."),
-            True,
+            i18n.tr("You can change words in the translation too."),
             [
                 self._action(i18n.tr("Copy"), self.copy_all),
                 self._action(i18n.tr("Save…"), self.save),
@@ -143,10 +140,9 @@ class ResultPage(QtWidgets.QWidget):
         return action
 
     def _connect_boxes(self) -> None:
-        """Report edits and clicks, and scroll both boxes together."""
+        """Report edits to the words and scroll both boxes together."""
         source, target = self.source.editor, self.translation.editor
         source.textChanged.connect(self.edited)
-        target.line_clicked.connect(self.line_clicked)
         for one, other in ((source, target), (target, source)):
             one.verticalScrollBar().valueChanged.connect(
                 other.verticalScrollBar().setValue

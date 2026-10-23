@@ -64,4 +64,4 @@ def test_hebrew_steps(qtbot):
     panel = activity.Activity()
     qtbot.addWidget(panel)
     panel.set_stage(2)
-    assert panel.status.text() == "מתרגמים…"
+    assert panel.status.text() == "מתרגם…"

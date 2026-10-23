@@ -1,8 +1,11 @@
 """Two rows of language buttons: the song's language and the target."""
 
-from PySide6 import QtCore, QtWidgets
+from PySide6 import QtCore, QtGui, QtWidgets
 
 from speech_translate import config, i18n
+
+# Horizontal padding (2 x 16 px) and border (2 x 2 px), plus breathing room.
+SEGMENT_PADDING = 48
 
 
 def segment(codes, group: QtWidgets.QButtonGroup) -> tuple:
@@ -19,10 +22,20 @@ def segment(codes, group: QtWidgets.QButtonGroup) -> tuple:
         button.setObjectName("segmentButton")
         button.setCheckable(True)
         button.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
+        button.setMinimumWidth(bold_width(button))
         group.addButton(button)
         row.addWidget(button)
         buttons[code] = button
     return box, buttons
+
+
+def bold_width(button: QtWidgets.QPushButton) -> int:
+    """Room for the label in bold, so a chosen language is never cut off."""
+    button.ensurePolished()
+    font = QtGui.QFont(button.font())
+    font.setBold(True)
+    text = QtGui.QFontMetrics(font).horizontalAdvance(button.text())
+    return text + SEGMENT_PADDING
 
 
 class LanguageBar(QtWidgets.QWidget):

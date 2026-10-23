@@ -67,7 +67,6 @@ class Window(QtWidgets.QMainWindow):
         result.copy_all.connect(self.copy_all)
         result.save.connect(self.save_translation)
         result.copy_source.connect(self.copy_source)
-        result.line_clicked.connect(self.copy_line)
         result.edited.connect(self.words_edited)
 
     def _connect_jobs(self) -> None:
@@ -205,10 +204,10 @@ class Window(QtWidgets.QMainWindow):
             self.translations.put(*self.pending_translation, text)
         self.pending_translation = None
         self.view.show_page("result")
-        message = notice or i18n.tr(
-            "Translation ready. Click a line to copy its translation."
-        )
-        self.view.show_status(message, "warning" if notice else "success")
+        if notice:
+            self.view.show_status(notice, "warning")
+        else:
+            self.view.status.clear_message()
 
     def keep_notice(self, message: str) -> None:
         """Remember how the running job produced its result."""
@@ -232,20 +231,6 @@ class Window(QtWidgets.QMainWindow):
         elif isinstance(self.next_translation, str):
             text, self.next_translation = self.next_translation, None
             self._translate(text)
-
-    def copy_line(self, row: int) -> None:
-        """Copy one translated line and say which one was copied."""
-        editor = self.view.result.translation.editor
-        QtWidgets.QApplication.clipboard().setText(editor.lines()[row])
-        editor.mark_copied(row)
-        number = editor.line_number(row)
-        self.view.show_status(
-            i18n.tr(
-                "Line {number} copied. You can paste it in the video editor.",
-                number=number,
-            ),
-            "success",
-        )
 
     def copy_all(self) -> None:
         """Copy the whole translation, keeping its lines and verse breaks."""

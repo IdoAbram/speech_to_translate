@@ -5,7 +5,6 @@ from unittest import mock
 
 import pytest
 from PySide6 import QtCore, QtGui, QtWidgets
-from PySide6.QtTest import QTest
 
 from speech_translate import config, settings, speech, translation
 from speech_translate.gui import (
@@ -56,7 +55,7 @@ def test_choose_hear_and_translate(translated, heard, translator):
     assert heard.call_args.args[1] == "pl"
     assert translator.call_args.args[1:3] == ("pl", "he")
     assert view.result.translated_lines() == WORDS.upper().split("\n")
-    assert view.status.property("kind") == "success"
+    assert view.status.isHidden()
 
 
 def test_screens_follow_the_flow(desktop, song, heard, translator, qapp):
@@ -71,27 +70,20 @@ def test_screens_follow_the_flow(desktop, song, heard, translator, qapp):
     assert desktop.view.page() == "result"
 
 
-def click_line(editor, row: int) -> None:
-    """Click the middle of one line, as the user would."""
-    block = editor.document().findBlockByNumber(row)
-    point = editor.cursorRect(QtGui.QTextCursor(block)).center()
-    QTest.mouseClick(
-        editor.viewport(), QtCore.Qt.MouseButton.LeftButton, pos=point
-    )
-
-
-def test_click_copies_a_line(translated):
-    """Clicking a translated line copies it and names the line."""
+def test_copy_buttons_and_editable_translation(translated):
+    """Both boxes copy their text; the translation can be edited too."""
     result = translated.view.result
-    click_line(result.translation.editor, 2)
     clipboard = QtWidgets.QApplication.clipboard()
-    assert clipboard.text() == "W KRAINĘ ZAPOMNIENIA"
-    assert "2" in translated.view.status.text()
-    assert result.translation.editor.copied == 2
     result.copy_all.emit()
     assert clipboard.text() == WORDS.upper()
     result.copy_source.emit()
     assert clipboard.text() == WORDS
+    editor = result.translation.editor
+    assert not editor.isReadOnly()
+    editor.textCursor().insertText("!")
+    result.copy_all.emit()
+    assert clipboard.text().startswith("!")
+    assert result.source_lines() == WORDS.split("\n")
 
 
 def test_switching_back_reuses_translation(translated, translator, qapp):
@@ -383,31 +375,20 @@ def test_language_bar_keeps_languages_apart(qapp):
     assert bar.target() == "he"
 
 
-def test_lyrics_box_numbers_hover_and_click(qtbot):
-    """Number only real lines; hover tints a line; blank lines do nothing."""
-    editor = lyrics_box.LyricsEditor(copyable=True)
+def test_lyrics_box_numbers_only_real_lines(qtbot):
+    """Blank verse lines get no number, so numbers match across boxes."""
+    editor = lyrics_box.LyricsEditor()
     qtbot.addWidget(editor)
     editor.resize(500, 300)
     editor.show()
     editor.set_lines(["a", "", "b"])
-    assert editor.line_number(2) == 2
     assert [n for n, _, _ in editor._numbered_lines()] == ["1", "2"]
-    block = editor.document().findBlockByNumber(2)
-    point = editor.cursorRect(QtGui.QTextCursor(block)).center()
-    QTest.mouseMove(editor.viewport(), point)
-    assert editor.hovered == 2 and len(editor.extraSelections()) == 1
-    editor.leaveEvent(QtCore.QEvent(QtCore.QEvent.Type.Leave))
-    assert editor.hovered == -1
-    clicked = []
-    editor.line_clicked.connect(clicked.append)
-    click_line(editor, 1)
-    click_line(editor, 2)
-    assert clicked == [2]
+    assert editor.lines() == ["a", "", "b"]
 
 
 def test_hebrew_box_reads_right_to_left(qtbot):
     """The translation box lays Hebrew out from the right edge."""
-    editor = lyrics_box.LyricsEditor(copyable=False)
+    editor = lyrics_box.LyricsEditor()
     qtbot.addWidget(editor)
     editor.set_language("he")
     editor.set_lines(["שלום"])

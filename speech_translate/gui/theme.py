@@ -8,8 +8,6 @@ BORDER = "#CDC8B9"
 ACCENT = "#B4532D"
 ACCENT_DARK = "#7A3418"
 ACCENT_SOFT = "#F8E9E1"
-HOVER_ROW = "#F8EDE6"
-COPIED_ROW = "#E9F2E3"
 
 STYLESHEET = f"""
 QMainWindow, QWidget#workspace, QDialog {{

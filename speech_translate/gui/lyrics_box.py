@@ -2,13 +2,12 @@
 
 Both boxes use the same font and line spacing and keep the song's blank
 verse lines, so line N of one box sits beside line N of the other. A faint
-number marks each non-blank line. In the translation box, hovering
-highlights a line and clicking copies it.
+number marks each non-blank line. Both boxes can be edited.
 """
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from speech_translate.gui import theme, widgets
+from speech_translate.gui import widgets
 
 NUMBER_WIDTH = 40
 TEXT_SIZE = 22
@@ -31,25 +30,17 @@ class NumberArea(QtWidgets.QWidget):
 class LyricsEditor(QtWidgets.QTextEdit):
     """Plain lyrics with faint line numbers on the side lines start on."""
 
-    line_clicked = QtCore.Signal(int)
-
-    def __init__(self, copyable: bool):
-        """An editable box, or a read-only box whose lines can be copied."""
+    def __init__(self):
+        """An editable box laid out for the song's language."""
         super().__init__()
-        self.copyable = copyable
-        self.hovered = self.copied = -1
         self.language = "en"
         font = QtGui.QFont("Segoe UI")
         font.setPixelSize(TEXT_SIZE)
         self.setFont(font)
         self.setAcceptRichText(False)
-        self.setReadOnly(copyable)
         self.numbers = NumberArea(self)
         self.verticalScrollBar().valueChanged.connect(self.numbers.update)
         self.textChanged.connect(self.numbers.update)
-        if copyable:
-            self.viewport().setMouseTracking(True)
-            self.viewport().setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
         self.set_language("en")
 
     def set_language(self, code: str) -> None:
@@ -88,17 +79,11 @@ class LyricsEditor(QtWidgets.QTextEdit):
         with QtCore.QSignalBlocker(self):
             self.setPlainText("\n".join(lines))
         self._format_lines()
-        self.hovered = self.copied = -1
-        self._highlight()
         self.numbers.update()
 
     def lines(self) -> list:
         """Return every line, blank verse lines included."""
         return self.toPlainText().split("\n")
-
-    def line_number(self, row: int) -> int:
-        """Count the non-blank lines up to and including a row."""
-        return sum(1 for line in self.lines()[: row + 1] if line.strip())
 
     def _place_numbers(self) -> None:
         """Reserve the gutter on the side where lines start."""
@@ -140,66 +125,11 @@ class LyricsEditor(QtWidgets.QTextEdit):
                 yield str(number), round(top - offset), round(first.height())
             block = block.next()
 
-    def mouseMoveEvent(self, event: QtGui.QMouseEvent) -> None:
-        """Highlight the line under the mouse in the translation box."""
-        if self.copyable:
-            row = self.cursorForPosition(event.position().toPoint())
-            self._set_hovered(row.blockNumber())
-        super().mouseMoveEvent(event)
-
-    def leaveEvent(self, event: QtCore.QEvent) -> None:
-        """Stop highlighting when the mouse leaves the box."""
-        self._set_hovered(-1)
-        super().leaveEvent(event)
-
-    def mousePressEvent(self, event: QtGui.QMouseEvent) -> None:
-        """Copy a translated line with one click."""
-        if not self.copyable:
-            super().mousePressEvent(event)
-            return
-        block = self.cursorForPosition(event.position().toPoint()).block()
-        if block.text().strip():
-            self.line_clicked.emit(block.blockNumber())
-
-    def _set_hovered(self, row: int) -> None:
-        """Remember the hovered line and repaint the highlights."""
-        if row != self.hovered:
-            self.hovered = row
-            self._highlight()
-
-    def mark_copied(self, row: int) -> None:
-        """Show which line was copied last."""
-        self.copied = row
-        self._highlight()
-
-    def _highlight(self) -> None:
-        """Tint the hovered line, then the copied line on top of it."""
-        selections = []
-        for row, color in (
-            (self.hovered, theme.HOVER_ROW),
-            (self.copied, theme.COPIED_ROW),
-        ):
-            block = self.document().findBlockByNumber(row)
-            if row >= 0 and block.isValid() and block.text().strip():
-                selections.append(line_tint(block, color))
-        self.setExtraSelections(selections)
-
-
-def line_tint(block: QtGui.QTextBlock, color: str):
-    """Tint a whole line, edge to edge, without selecting its text."""
-    selection = QtWidgets.QTextEdit.ExtraSelection()
-    selection.format.setBackground(QtGui.QColor(color))
-    selection.format.setProperty(
-        QtGui.QTextFormat.Property.FullWidthSelection, True
-    )
-    selection.cursor = QtGui.QTextCursor(block)
-    return selection
-
 
 class LyricsBox(QtWidgets.QFrame):
     """A card with a title, a short hint, buttons, and the text itself."""
 
-    def __init__(self, hint: str, copyable: bool, buttons: list):
+    def __init__(self, hint: str, buttons: list):
         """Arrange the title row, the hint, and the editor."""
         super().__init__()
         self.setObjectName("card")
@@ -213,5 +143,5 @@ class LyricsBox(QtWidgets.QFrame):
             row.addWidget(button)
         column.addLayout(row)
         column.addWidget(widgets.label(hint, "caption"))
-        self.editor = LyricsEditor(copyable)
+        self.editor = LyricsEditor()
         column.addWidget(self.editor, 1)
