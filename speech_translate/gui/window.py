@@ -6,6 +6,7 @@ from PySide6 import QtGui, QtWidgets
 
 from speech_translate import config, speech
 from speech_translate.gui import jobs, view, worker
+from speech_translate.translation import cache
 
 
 class Window(QtWidgets.QMainWindow):
@@ -22,6 +23,8 @@ class Window(QtWidgets.QMainWindow):
         self.action = ""
         self.language = None
         self.close_pending = False
+        self.translations = cache.TranslationCache()
+        self.pending_translation = None
         self.setCentralWidget(self.view)
         self._connect_controls()
         self._connect_jobs()
@@ -90,33 +93,38 @@ class Window(QtWidgets.QMainWindow):
         self.runner.start(request)
 
     def translate_text(self) -> None:
-        """Translate the edited transcript using the selected target."""
+        """Translate the edited transcript, reusing any earlier result."""
         if self.runner.busy:
             return
-        if not self.view.original.text().strip():
+        text = self.view.original.text()
+        if not text.strip():
             self.view.status.setText("There is no transcript to translate.")
             return
         self.clear_translation()
-        self._start(
-            worker.Request(
-                "translate",
-                self.language,
-                self.view.target.currentData(),
-                text=self.view.original.text(),
-            )
-        )
+        key = (text, self.language, self.view.target.currentData())
+        remembered = self.translations.get(*key)
+        if remembered is not None:
+            self.show_translation(remembered)
+            self.view.status.setText("Translation ready (remembered).")
+            return
+        self.pending_translation = key
+        self._start(worker.Request("translate", key[1], key[2], text=text))
 
     def show_result(self, result: speech.Transcript | str) -> None:
         """Show a transcript first, then both texts after translation."""
         if self.action == "speech":
             self.show_transcript(result)
         else:
-            self.view.translated.set_text(
-                result, self.view.target.currentData()
-            )
-            self.view.translated.show()
-            self.view.panels.setSizes([1, 1])
+            if self.pending_translation is not None:
+                self.translations.put(*self.pending_translation, result)
+            self.show_translation(result)
             self.view.status.setText(self._translation_notice())
+
+    def show_translation(self, text: str) -> None:
+        """Display a translation beside the transcript it came from."""
+        self.view.translated.set_text(text, self.view.target.currentData())
+        self.view.translated.show()
+        self.view.panels.setSizes([1, 1])
 
     def _translation_notice(self) -> str:
         """Explain the intentional reflow of translated lyric lines."""
