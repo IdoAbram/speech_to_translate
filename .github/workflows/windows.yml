@@ -1,0 +1,192 @@
+name: Windows standalone EXE
+
+on:
+  push:
+    branches: [main, dev, speed_to_translate]
+  pull_request:
+    branches: [main, dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: pwsh
+
+env:
+  PYTHONUTF8: '1'
+  PYTHONUNBUFFERED: '1'
+  PIP_DISABLE_PIP_VERSION_CHECK: '1'
+
+jobs:
+  prebuild:
+    name: Prebuild
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/python-environment
+        with:
+          requirements: requirements-dev.txt
+      - name: Check Python conventions
+        run: |
+          python -m ruff check .
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          python -m ruff format --check .
+      - name: Check workflow syntax
+        run: ./.github/scripts/check-workflow.ps1
+
+  build:
+    name: Build
+    needs: prebuild
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/python-environment
+        with:
+          requirements: requirements-build.txt
+      - name: Cache converted runtime models
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: models
+          key: models-v1-windows-x64-${{ hashFiles('requirements-models.txt', 'requirements.lock.txt', 'setup_models.py', 'speech_translate/installation/*.py') }}
+      - name: Prepare offline models
+        run: python setup_models.py --speech-model small
+      - name: Build single EXE with embedded models
+        run: python build_windows.py
+      - name: Record checksum and build provenance
+        run: |
+          $hash = (Get-FileHash dist/SongWords.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  SongWords.exe" | Set-Content dist/SHA256SUMS.txt -Encoding utf8NoBOM
+          @{
+            commit = $env:GITHUB_SHA
+            run = "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
+            architecture = 'windows-x64'
+            python = (python --version)
+            sha256 = $hash
+            models = (Get-Content models/manifest.json -Raw | ConvertFrom-Json)
+          } | ConvertTo-Json -Depth 8 | Set-Content dist/build-info.json -Encoding utf8NoBOM
+          Copy-Item README.md, LICENSE, THIRD_PARTY_NOTICES.md -Destination dist
+          Copy-Item build/licenses -Destination dist/licenses -Recurse
+      - name: Pass candidate to test and deploy
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: windows-candidate
+          overwrite: true
+          path: dist/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+      - name: Pass exact models to integration tests
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: test-models
+          overwrite: true
+          path: models/
+          include-hidden-files: true
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+
+  test:
+    name: Test
+    needs: build
+    runs-on: windows-2022
+    timeout-minutes: 45
+    env:
+      QT_QPA_PLATFORM: offscreen
+      RUN_MODEL_TESTS: '1'
+      HF_HUB_OFFLINE: '1'
+      TRANSFORMERS_OFFLINE: '1'
+      HF_HUB_DISABLE_TELEMETRY: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/python-environment
+        with:
+          requirements: requirements-dev.txt
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: windows-candidate
+          path: dist
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: test-models
+          path: models
+      - name: Verify candidate checksum
+        run: ./.github/scripts/verify-package.ps1
+      - name: Run unit, GUI, and real model tests
+        run: >-
+          python -m pytest --cov=speech_translate --cov-report=term-missing
+          --cov-report=xml:reports/coverage.xml --cov-fail-under=95
+          --junitxml=reports/pytest.xml --durations=10
+      - name: Test EXE with no Python on PATH
+        run: python -m tests.verify_executable dist/SongWords.exe
+      - name: Save test reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: windows-test-reports-${{ github.run_attempt }}
+          path: |
+            reports/
+            .downloads/standalone-verified.json
+            .downloads/standalone-check/**/verification.json
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14
+
+  deploy:
+    name: Deploy artifact
+    needs: test
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: windows-candidate
+          path: dist
+      - name: Verify tested candidate checksum
+        run: ./.github/scripts/verify-package.ps1
+      - name: Publish standalone EXE
+        id: executable
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          path: dist/SongWords.exe
+          archive: false
+          overwrite: true
+          if-no-files-found: error
+          retention-days: 14
+      - name: Publish checksums and notices
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: SongWords-release-info-${{ github.run_attempt }}
+          path: |
+            dist/SHA256SUMS.txt
+            dist/build-info.json
+            dist/README.md
+            dist/LICENSE
+            dist/THIRD_PARTY_NOTICES.md
+            dist/licenses/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Link download in run summary
+        env:
+          DOWNLOAD_URL: ${{ steps.executable.outputs.artifact-url }}
+        run: |
+          "[Download SongWords.exe]($env:DOWNLOAD_URL)" >> $env:GITHUB_STEP_SUMMARY
+          'Windows x64; Python and both offline models are embedded.' >> $env:GITHUB_STEP_SUMMARY
+          'Artifacts are retained for 14 days. No Python installation is required.' >> $env:GITHUB_STEP_SUMMARY
